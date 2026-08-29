@@ -72,6 +72,51 @@ def _rows(docs, min_trust="plausible"):
     return out, excluded
 
 
+def _headline(rows) -> str:
+    """What the data says, before the tables say it in detail.
+
+    A visitor arriving cold should not have to read nine grouped tables to find out
+    whether a setting is safe. This is computed from the rows on the page -- never
+    typed in -- so it cannot drift away from the evidence beneath it, and it says how
+    many measurements are behind each line rather than stating a bare verdict.
+    """
+    by_method: dict = {}
+    for r in rows:
+        if r["rate"] is None or r["ref_rate"] is None:
+            continue
+        g = by_method.setdefault(r["arm"], {"deltas": [], "ratios": [], "models": set()})
+        g["deltas"].append(r["rate"] - r["ref_rate"])
+        if r["bpt"] and r["ref_bpt"]:
+            g["ratios"].append(r["ref_bpt"] / r["bpt"])
+        g["models"].add(r["model"])
+    if not by_method:
+        return ""
+    out = ['<div class="head"><h2>What the submissions say so far</h2><ul>']
+    for arm, g in sorted(by_method.items(), key=lambda kv: -len(kv[1]["deltas"])):
+        d = sorted(g["deltas"])
+        med = d[len(d) // 2]
+        worst = min(d)
+        ratio = (f'{sorted(g["ratios"])[len(g["ratios"]) // 2]:.1f}&times; smaller cache'
+                 if g["ratios"] else "cache size not measured")
+        # a median near zero with a bad worst case is the case worth naming: it is the
+        # shape q4_0 actually has, and an average would hide it
+        if med >= -0.005 and worst >= -0.02:
+            verdict = '<span class="ok">no measurable cost</span>'
+        elif med >= -0.02:
+            verdict = (f'<span class="warn">no cost on most, but as much as '
+                       f'{abs(worst):.0%} on one</span>')
+        else:
+            verdict = f'<span class="bad">costs {abs(med):.0%} of task success</span>'
+        out.append(f'<li><code>{html.escape(arm)}</code> &mdash; {ratio}, {verdict}'
+                   f' <span class="dim">({len(d)} measurement(s), '
+                   f'{len(g["models"])} model(s))</span></li>')
+    out.append('</ul><p class="dim">Each figure is a delta against that same '
+               'machine\'s uncompressed reference. Worst case is shown alongside the '
+               'median because a setting that is free on a large model and harmful on '
+               'a small one has a fine average and is still a trap.</p></div>')
+    return "".join(out)
+
+
 def render(docs) -> str:
     st = stats_from(docs)
     rows, excluded = _rows(docs)
@@ -129,7 +174,12 @@ th,td{{padding:7px 10px;text-align:left;border-bottom:1px solid var(--line)}}
 th{{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--dim)}}
 tr:last-child td{{border-bottom:0}}.n{{text-align:right;font-variant-numeric:tabular-nums}}
 code{{font-size:.88em}}.ok{{color:var(--ok)}}.warn{{color:var(--warn)}}.bad{{color:var(--bad);font-weight:600}}
-.lede{{color:var(--dim);margin:0 0 18px}}.note{{color:var(--dim);font-size:.85rem;
+.lede{{color:var(--dim);margin:0 0 18px}}
+.head{{background:var(--card);border:1px solid var(--line);border-radius:10px;
+ padding:14px 18px;margin:18px 0 6px}}
+.head h2{{font-size:.78rem;text-transform:uppercase;letter-spacing:.09em;
+ color:var(--dim);margin:0 0 10px}}
+.head ul{{margin:0;padding-left:20px}}.head li{{margin:5px 0}}.note{{color:var(--dim);font-size:.85rem;
  border-top:1px solid var(--line);margin-top:30px;padding-top:14px}}
 </style></head><body><div class="wrap">
 <h1>KV-Audit results</h1>
@@ -141,6 +191,7 @@ comparable to a datacentre's.</p>
 {len(st['models'])} models &middot; {len(st['hardware'])} machines &middot;
 {', '.join(html.escape(b) for b in st['backends'])}
 {f"&middot; {excluded} row(s) held back by plausibility screening" if excluded else ""}</p>
+{_headline(rows)}
 {''.join(body)}
 <p class="note">Task success is measured on planted facts a model cannot know in
 advance, so it scores the optimisation and not the model. Rates carry their n; a
