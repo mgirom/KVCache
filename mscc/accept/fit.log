@@ -1,0 +1,74 @@
+Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights:   1%|▏         | 4/311 [00:00<00:07, 39.69it/s]Loading weights:  43%|████▎     | 134/311 [00:00<00:00, 777.17it/s]Loading weights:  81%|████████  | 252/311 [00:00<00:00, 958.78it/s]Loading weights: 100%|██████████| 311/311 [00:00<00:00, 893.74it/s]
+model: models/qwen3-1.7b-fp  layers=28  tap=layer 23 (85.7% of stack skipped at the receiver)
+  captured 1024/61905 tokens
+  captured 2048/61905 tokens
+  captured 3072/61905 tokens
+  captured 4096/61905 tokens
+  captured 5120/61905 tokens
+  captured 6144/61905 tokens
+  captured 7168/61905 tokens
+  captured 8192/61905 tokens
+  captured 9216/61905 tokens
+  captured 10240/61905 tokens
+  captured 11264/61905 tokens
+  captured 12288/61905 tokens
+  captured 13312/61905 tokens
+  captured 14336/61905 tokens
+  captured 15360/61905 tokens
+  captured 16384/61905 tokens
+  captured 17408/61905 tokens
+  captured 18432/61905 tokens
+  captured 19456/61905 tokens
+  captured 20480/61905 tokens
+  captured 21504/61905 tokens
+  captured 22528/61905 tokens
+  captured 23552/61905 tokens
+  captured 24576/61905 tokens
+  captured 25600/61905 tokens
+  captured 26624/61905 tokens
+  captured 27648/61905 tokens
+  captured 28672/61905 tokens
+  captured 29696/61905 tokens
+  captured 30720/61905 tokens
+  captured 31744/61905 tokens
+  captured 32768/61905 tokens
+  captured 33792/61905 tokens
+  captured 34816/61905 tokens
+  captured 35840/61905 tokens
+  captured 36864/61905 tokens
+  captured 37888/61905 tokens
+  captured 38912/61905 tokens
+  captured 39936/61905 tokens
+  captured 40960/61905 tokens
+  captured 41984/61905 tokens
+  captured 43008/61905 tokens
+  captured 44032/61905 tokens
+  captured 45056/61905 tokens
+  captured 46080/61905 tokens
+  captured 47104/61905 tokens
+  captured 48128/61905 tokens
+  captured 49152/61905 tokens
+  captured 50176/61905 tokens
+  captured 51200/61905 tokens
+  captured 52224/61905 tokens
+  captured 53248/61905 tokens
+  captured 54272/61905 tokens
+  captured 55296/61905 tokens
+  captured 56320/61905 tokens
+  captured 57344/61905 tokens
+  captured 58368/61905 tokens
+  captured 59392/61905 tokens
+  captured 60416/61905 tokens
+  captured 61440/61905 tokens
+  captured 61905/61905 tokens
+captured (61905, 2048) in 12.9s -- fitting on CPU
+{
+ "codebook": "mscc/accept/book.cb.npz",
+ "bytes": 7815578,
+ "sha": "bcce315183b70101",
+ "funded_dims": 1024,
+ "bits_per_token": 2048,
+ "hidden_dim": 2048,
+ "layer": 23,
+ "n_states": 61905
+}

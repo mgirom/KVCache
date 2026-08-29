@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/kv-audit/result-0.1.0.json",
+  "title": "KV-Audit result",
+  "description": "One submission = one machine, one workload, one reference arm, and one or more arms under test. The reference arm is mandatory and must have run in the same session on the same machine: every quality number in this file is a delta against it.",
+  "type": "object",
+  "required": ["schema_version", "run_id", "utc", "workload", "system", "reference", "arms", "integrity"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "run_id": { "type": "string", "pattern": "^[0-9a-f]{32}$",
+      "description": "Random per run. Not derived from anything identifying." },
+    "utc": { "type": "string", "format": "date-time" },
+    "tool": {
+      "type": "object", "required": ["name", "version", "build_sha"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "build_sha": { "type": "string", "pattern": "^[0-9a-f]{40,64}$" },
+        "signed": { "type": "boolean" }
+      }
+    },
+
+    "workload": {
+      "type": "object",
+      "required": ["id", "sha256", "model", "contexts", "reference_floor"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$",
+          "description": "Content address of the whole bundle. Results with different values are never compared." },
+        "model": {
+          "type": "object",
+          "required": ["sha256", "n_layers", "n_kv_heads", "head_dim", "kv_dtype"],
+          "additionalProperties": false,
+          "description": "Pinned by file hash. A name is not a pin.",
+          "properties": {
+            "name": { "type": "string" },
+            "quant": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "n_layers": { "type": "integer", "minimum": 1 },
+            "n_kv_heads": { "type": "integer", "minimum": 1 },
+            "head_dim": { "type": "integer", "minimum": 1 },
+            "kv_dtype": { "type": "string" },
+            "params_b": { "type": "number" }
+          }
+        },
+        "contexts": { "type": "array", "minItems": 1, "items": { "type": "integer", "minimum": 128 } },
+        "excluded_tiers": {
+          "type": "object",
+          "description": "tier -> {contexts:[...], reference:{...}}. A tier the reference arm cannot do AT A GIVEN CONTEXT measures the model rather than the method, so it is excluded at that context and declared here. Capability is context-dependent: a tier can be sound at 1k and unusable at 16k.",
+          "additionalProperties": {
+            "type": "object", "required": ["contexts"],
+            "properties": {
+              "contexts": { "type": "array", "items": { "type": "integer" } },
+              "reference": { "type": "object" },
+              "reason": { "type": "string" }
+            }
+          }
+        },
+        "reference_floor": { "type": "number", "minimum": 0, "maximum": 1,
+          "description": "Minimum per-tier task success the REFERENCE arm must hit. Below it the workload is broken on this stack and the run says nothing about any method." },
+        "agreement_tolerance": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+
+    "system": {
+      "type": "object",
+      "required": ["os", "arch", "backend"],
+      "additionalProperties": false,
+      "description": "Closed field list. See PRIVACY.md. No hostname, username, paths, or serials.",
+      "properties": {
+        "os": { "type": "string", "enum": ["linux", "windows", "macos"] },
+        "os_version": { "type": "string" },
+        "arch": { "type": "string", "enum": ["x86_64", "arm64"] },
+        "backend": { "type": "string", "enum": ["cuda", "rocm", "metal", "vulkan", "sycl", "cpu"] },
+        "backend_version": { "type": "string" },
+        "cpu_model": { "type": "string" },
+        "cpu_cores": { "type": "integer", "minimum": 1 },
+        "ram_bytes": { "type": "integer", "minimum": 0 },
+        "gpu_model": { "type": "string" },
+        "gpu_vram_bytes": { "type": "integer", "minimum": 0 },
+        "gpu_count": { "type": "integer", "minimum": 0 },
+        "driver_version": { "type": "string" }
+      }
+    },
+
+    "reference": { "$ref": "#/$defs/arm",
+      "description": "The same model, no KV optimisation, same machine, same session. Mandatory." },
+    "arms": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/arm" } },
+
+    "_capability": { "type": "object",
+      "description": "What the machine offered, so an auto-selected ladder can be understood after the fact." },
+    "_kv_measurement": { "type": "object",
+      "description": "How the cache size was measured, including which memory the slope was taken in (device vs host)." },
+    "integrity": {
+      "type": "object", "required": ["result_hash"], "additionalProperties": false,
+      "properties": {
+        "result_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$",
+          "description": "sha256 over the canonical serialisation of this document with `integrity` removed." },
+        "signature": { "type": "string" },
+        "trust": { "type": "string", "enum": ["unverified", "plausible", "reproduced"], "default": "unverified",
+          "description": "Assigned server-side. Always displayed, never hidden." }
+      }
+    }
+  },
+
+  "$defs": {
+    "arm": {
+      "type": "object",
+      "required": ["name", "method", "rungs"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "method": {
+          "type": "object", "required": ["family"], "additionalProperties": false,
+          "properties": {
+            "family": { "type": "string",
+              "description": "e.g. none | int8 | int4 | int2 | evict | lowrank | cpca | custom" },
+            "impl": { "type": "string", "description": "The exact invocation, e.g. 'llama.cpp -ctk q4_0 -ctv q4_0'." },
+            "params": { "type": "object" }
+          }
+        },
+        "rungs": {
+          "type": "array", "minItems": 1,
+          "description": "One entry per context length. A rung that did not run is present with ran=false and a reason — never silently omitted.",
+          "items": {
+            "type": "object", "required": ["context", "ran"], "additionalProperties": false,
+            "properties": {
+              "context": { "type": "integer", "minimum": 128 },
+              "ran": { "type": "boolean" },
+              "skip_reason": { "type": "string", "enum": ["insufficient_vram", "insufficient_ram", "unsupported", "timeout", "user_skipped"] },
+              "quality": { "$ref": "#/$defs/quality" },
+              "cost": { "$ref": "#/$defs/cost" }
+            },
+            "allOf": [
+              { "if": { "properties": { "ran": { "const": true } }, "required": ["ran"] },
+                "then": { "required": ["quality", "cost"] } },
+              { "if": { "properties": { "ran": { "const": false } }, "required": ["ran"] },
+                "then": { "required": ["skip_reason"] } }
+            ]
+          }
+        }
+      }
+    },
+
+    "quality": {
+      "type": "object",
+      "required": ["task_success"],
+      "additionalProperties": false,
+      "description": "task_success is REQUIRED and agreement alone is never sufficient. A configuration measured at 0.833 agreement in this project answered 0 of 12 planted questions correctly.",
+      "properties": {
+        "task_success": {
+          "type": "object", "required": ["overall", "by_tier"], "additionalProperties": false,
+          "properties": {
+            "overall": { "$ref": "#/$defs/rate" },
+            "by_tier": {
+              "type": "object", "additionalProperties": false,
+              "properties": {
+                "t1_retrieve": { "$ref": "#/$defs/rate" },
+                "t2_link": { "$ref": "#/$defs/rate" },
+                "t3_aggregate": { "$ref": "#/$defs/rate" },
+                "t4_distractor": { "$ref": "#/$defs/rate" }
+              }
+            },
+            "by_depth": {
+              "type": "object", "additionalProperties": { "$ref": "#/$defs/rate" },
+              "description": "Keyed by burial depth as a percentage string, e.g. \"10\", \"50\", \"90\"."
+            }
+          }
+        },
+        "agreement": {
+          "type": "object", "required": ["top1", "n_positions"], "additionalProperties": false,
+          "description": "Per-position top-1 match against the reference arm on a held-out tail. A proxy. Reported alongside task_success, never instead of it.",
+          "properties": {
+            "top1": { "type": "number", "minimum": 0, "maximum": 1 },
+            "n_positions": { "type": "integer", "minimum": 1 },
+            "sd": { "type": "number", "minimum": 0 }
+          }
+        }
+      }
+    },
+
+    "cost": {
+      "type": "object",
+      "required": ["kv_bytes_per_token_measured", "prefill_ms", "decode_tok_per_s"],
+      "additionalProperties": false,
+      "properties": {
+        "kv_bytes_per_token_measured": { "type": "number", "minimum": 0,
+          "description": "Measured off the live cache WITH quantisation scales and any retained full-precision tokens charged." },
+        "kv_bytes_per_token_declared": { "type": "number", "minimum": 0,
+          "description": "What the method claims. Must agree with the measured value within 1% or the submission is invalid." },
+        "peak_vram_bytes": { "type": "integer", "minimum": 0 },
+        "peak_host_bytes": { "type": "integer", "minimum": 0 },
+        "prefill_ms": { "type": "number", "minimum": 0 },
+        "ttft_ms": { "type": "number", "minimum": 0 },
+        "decode_tok_per_s": { "type": "number", "minimum": 0 },
+        "restore_ms": { "type": "number", "minimum": 0,
+          "description": "MANDATORY for any method that stores or transports a cache: wall-clock to get it back to usable through the REAL serialisation path. Omitting this is how a 15x compression win in this project hid a 3.7x latency regression." },
+        "store_bytes": { "type": "integer", "minimum": 0 },
+        "repeats": { "type": "integer", "minimum": 1 }
+      }
+    },
+
+    "rate": {
+      "type": "object", "required": ["hits", "n"], "additionalProperties": false,
+      "description": "Never a bare fraction. n travels with every rate so nobody reads 1.00 off n=2.",
+      "properties": {
+        "hits": { "type": "integer", "minimum": 0 },
+        "n": { "type": "integer", "minimum": 1 },
+        "rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "ci95": { "type": "array", "minItems": 2, "maxItems": 2,
+          "items": { "type": "number", "minimum": 0, "maximum": 1 },
+          "description": "95% Wilson score interval. Repeat runs cannot supply error bars here -- greedy decoding over a fixed workload reproduces itself exactly -- so the reported uncertainty is binomial over item sampling." }
+      }
+    }
+  }
+}
