@@ -92,6 +92,23 @@ that makes people either skip submitting or reach for `--yes` permanently, and n
 is better for them. What is preserved is the part that matters — an informed first yes,
 tied to a specific field list, revocable, and never a default.
 
+## What submitting publicly reveals, which is more than the field list
+
+If you submit by pull request, **your GitHub account is attached to the submission** —
+that is inherent to a PR and cannot be otherwise. So the row does not merely describe
+"a machine", it describes *your* machine, publicly and durably:
+
+- your GPU, CPU, RAM and core count
+- your OS and driver versions, which is your patch level
+
+None of that identifies you on its own; combined with your GitHub identity it does say
+what hardware you own and roughly how current your system is. That is normal for a
+public benchmark and it is also more than the field list alone implies, so it is said
+here rather than left to be discovered.
+
+If you would rather contribute without that link, run with `--route http` against a
+hosted instance, or do not submit. The tool is fully useful offline.
+
 ## Deleting your data
 
 Each accepted upload returns a **deletion token**. Keeping it lets you remove that row

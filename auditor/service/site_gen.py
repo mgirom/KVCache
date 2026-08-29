@@ -25,11 +25,25 @@ from server import pooled, stats                                   # noqa: E402
 TRUST_ORDER = {"unverified": 0, "plausible": 1, "reproduced": 2}
 
 
+def derive_trust(doc: dict, peers=None) -> str:
+    """Trust is COMPUTED here, never read from the submission.
+
+    Two reasons, and the second is the important one. A row that arrives as a pull
+    request never passes through the service that would have assigned it, so a stored
+    value is often simply absent. And a stored value is submitter-controlled: nothing
+    stopped someone writing `"trust": "reproduced"` into their own file. Deriving it at
+    render time from the plausibility screen makes it an assessment by whoever is
+    displaying the data, which is the only thing it could honestly have been.
+    """
+    from store import screen
+    return "unverified" if screen(doc, peers) else "plausible"
+
+
 def _rows(docs, min_trust="plausible"):
     out, excluded = [], 0
     floor = TRUST_ORDER.get(min_trust, 1)
     for d in docs:
-        if TRUST_ORDER.get(d.get("integrity", {}).get("trust", "unverified"), 0) < floor:
+        if TRUST_ORDER.get(derive_trust(d, docs), 0) < floor:
             excluded += 1
             continue
         s, m = d.get("system", {}), d.get("workload", {}).get("model", {})
@@ -53,7 +67,7 @@ def _rows(docs, min_trust="plausible"):
                     "bpt": r["cost"]["kv_bytes_per_token_measured"],
                     "ref_bpt": ref_rung["cost"]["kv_bytes_per_token_measured"] if ref_rung else 0,
                     "tps": r["cost"]["decode_tok_per_s"],
-                    "trust": d.get("integrity", {}).get("trust", "unverified"),
+                    "trust": derive_trust(d, docs),
                 })
     return out, excluded
 

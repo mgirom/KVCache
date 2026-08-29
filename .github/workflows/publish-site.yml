@@ -1,0 +1,50 @@
+name: publish results page
+
+# The raw submissions are the record; this is the readable face of them. It is built
+# from the same files anyone can check out, by a script anyone can run, so the page is
+# never a claim you have to take on trust -- you can regenerate it and diff.
+
+on:
+  push:
+    branches: [main]
+    paths: ["submissions/**", "auditor/service/site_gen.py", ".github/workflows/publish-site.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+
+      - name: every submission must still validate before it is displayed
+        run: |
+          set -e
+          shopt -s nullglob globstar
+          for f in submissions/**/*.json; do python3 auditor/validate.py "$f"; done
+
+      - name: build
+        run: python3 auditor/service/site_gen.py --root submissions -o site/index.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: site }
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

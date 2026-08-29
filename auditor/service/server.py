@@ -61,7 +61,8 @@ def query(store: Store, gpu="", model="", backend="", method="", context=0,
         # default. They are not hidden either -- the count is reported, and
         # min_trust=unverified returns them. Silently averaging a flagged row into a
         # headline is how one bad submission moves a recommendation.
-        if TRUST_ORDER.get(doc.get("integrity", {}).get("trust", "unverified"), 0) < floor:
+        import site_gen as _sg
+        if TRUST_ORDER.get(_sg.derive_trust(doc), 0) < floor:
             excluded_by_trust += 1
             continue
         s = doc.get("system", {})
@@ -100,7 +101,7 @@ def query(store: Store, gpu="", model="", backend="", method="", context=0,
                 g["kv_bytes_per_token"].append(r["cost"]["kv_bytes_per_token_measured"])
                 g["decode_tok_per_s"].append(r["cost"]["decode_tok_per_s"])
                 g["prefill_ms"].append(r["cost"]["prefill_ms"])
-                g["trust"].add(doc.get("integrity", {}).get("trust", "unverified"))
+                g["trust"].add(_sg.derive_trust(doc))
 
     out = []
     for g in groups.values():

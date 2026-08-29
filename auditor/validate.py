@@ -54,6 +54,31 @@ def wilson_upper(hits: int, n: int, z: float = 1.96) -> float:
     return min(1.0, c + h)
 
 
+def _check_rate(r: dict, where: str) -> list[str]:
+    """Arithmetic a fabricated row cannot satisfy.
+
+    Re-hashing a tampered submission makes it internally consistent and defeats the
+    integrity check -- that is what the hash is for, and it is not a fraud detector.
+    These invariants are: a rate cannot exceed 1, hits cannot exceed n, and the
+    per-tier hits must sum to the overall. Cheap, and they catch the naive edit that
+    the hash alone does not.
+    """
+    out = []
+    h, n = r.get("hits"), r.get("n")
+    if not isinstance(h, int) or not isinstance(n, int):
+        return [f"{where}: hits and n must be integers"]
+    if n <= 0:
+        out.append(f"{where}: n must be positive")
+    elif h > n:
+        out.append(f"{where}: {h} hits out of {n} items is impossible")
+    if h < 0:
+        out.append(f"{where}: negative hits")
+    declared = r.get("rate")
+    if declared is not None and n > 0 and abs(declared - h / n) > 1e-6:
+        out.append(f"{where}: declared rate {declared} does not match {h}/{n}")
+    return out
+
+
 def validate(doc: dict) -> list[str]:
     """Return a list of rejection reasons. Empty means the submission is valid."""
     bad: list[str] = []
@@ -91,8 +116,12 @@ def validate(doc: dict) -> list[str]:
         if not rung.get("ran"):
             continue
         ref_ok_ctx.add(rung["context"])
-        by_tier = rung.get("quality", {}).get("task_success", {}).get("by_tier", {})
+        rts = rung.get("quality", {}).get("task_success", {})
+        if "overall" in rts:
+            bad += _check_rate(rts["overall"], f"reference ctx {rung['context']} overall")
+        by_tier = rts.get("by_tier", {})
         for tier, r in by_tier.items():
+            bad += _check_rate(r, f"reference ctx {rung['context']} {tier}")
             if is_excluded(tier, rung["context"]):
                 bad.append(f"tier {tier} is declared excluded at ctx "
                            f"{rung['context']} but the reference arm still reports it")
@@ -129,6 +158,20 @@ def validate(doc: dict) -> list[str]:
                            "context, so the delta is undefined")
 
             q = rung.get("quality", {})
+            ts = q.get("task_success", {})
+            if "overall" in ts:
+                bad += _check_rate(ts["overall"], f"arm {name!r} ctx {ctx} overall")
+            tier_h = tier_n = 0
+            for tname, tr in ts.get("by_tier", {}).items():
+                bad += _check_rate(tr, f"arm {name!r} ctx {ctx} {tname}")
+                tier_h += tr.get("hits", 0) or 0
+                tier_n += tr.get("n", 0) or 0
+            ov = ts.get("overall", {})
+            if ts.get("by_tier") and ov.get("n"):
+                if tier_h != ov.get("hits") or tier_n != ov.get("n"):
+                    bad.append(
+                        f"arm {name!r} ctx {ctx}: per-tier totals {tier_h}/{tier_n} do "
+                        f"not sum to the overall {ov.get('hits')}/{ov.get('n')}")
             for tier in q.get("task_success", {}).get("by_tier", {}):
                 if is_excluded(tier, ctx):
                     bad.append(f"arm {name!r} ctx {ctx}: reports tier {tier}, which is "
@@ -182,8 +225,11 @@ def _rate_obj(hits, n):
 
 def _rung(ctx, tier_hits, n=12, declared=None, measured=3584.0, store=None,
           restore=None, agreement=None):
-    q = {"task_success": {"overall": _rate_obj(sum(tier_hits.values()), n * 4),
-                          "by_tier": {t: _rate_obj(h, n) for t, h in tier_hits.items()}}}
+    # overall must be the sum of the tiers actually present, not a hardcoded n*4 --
+    # the arithmetic invariants added to validate() correctly flagged the old fixture
+    q = {"task_success": {
+        "overall": _rate_obj(sum(tier_hits.values()), n * max(1, len(tier_hits))),
+        "by_tier": {t: _rate_obj(h, n) for t, h in tier_hits.items()}}}
     if agreement is not None:
         q["agreement"] = {"top1": agreement, "n_positions": 1536}
     c = {"kv_bytes_per_token_measured": measured, "prefill_ms": 337.0,
