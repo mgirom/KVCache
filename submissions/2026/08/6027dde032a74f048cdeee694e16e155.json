@@ -1,0 +1,264 @@
+{
+ "_kv_measurement": {},
+ "arms": [
+  {
+   "method": {
+    "family": "q4_0",
+    "impl": "llama.cpp -ctk q4_0 -ctv q4_0"
+   },
+   "name": "q4_0",
+   "rungs": [
+    {
+     "context": 1024,
+     "cost": {
+      "decode_tok_per_s": 34.42,
+      "kv_bytes_per_token_measured": 0.0,
+      "peak_vram_bytes": 7016595456,
+      "prefill_ms": 7481.37,
+      "repeats": 1
+     },
+     "quality": {
+      "_doc_tokens_mean": 1040.8,
+      "_truncated_misses": {
+       "ci95": [
+        0.0,
+        0.026
+       ],
+       "hits": 0,
+       "n": 144,
+       "rate": 0.0
+      },
+      "task_success": {
+       "by_depth": {
+        "10": {
+         "ci95": [
+          0.7783,
+          0.9547
+         ],
+         "hits": 43,
+         "n": 48,
+         "rate": 0.8958333333333334
+        },
+        "50": {
+         "ci95": [
+          0.6806,
+          0.8981
+         ],
+         "hits": 39,
+         "n": 48,
+         "rate": 0.8125
+        },
+        "90": {
+         "ci95": [
+          0.6574,
+          0.8827
+         ],
+         "hits": 38,
+         "n": 48,
+         "rate": 0.7916666666666666
+        }
+       },
+       "by_tier": {
+        "t1_retrieve": {
+         "ci95": [
+          0.7783,
+          0.9547
+         ],
+         "hits": 43,
+         "n": 48,
+         "rate": 0.8958333333333334
+        },
+        "t2_link": {
+         "ci95": [
+          0.6806,
+          0.8981
+         ],
+         "hits": 39,
+         "n": 48,
+         "rate": 0.8125
+        },
+        "t4_distractor": {
+         "ci95": [
+          0.6574,
+          0.8827
+         ],
+         "hits": 38,
+         "n": 48,
+         "rate": 0.7916666666666666
+        }
+       },
+       "overall": {
+        "ci95": [
+         0.764,
+         0.8854
+        ],
+        "hits": 120,
+        "n": 144,
+        "rate": 0.8333333333333334
+       }
+      }
+     },
+     "ran": true
+    }
+   ]
+  }
+ ],
+ "integrity": {
+  "result_hash": "d8148517d7b4c5d1533fffc822f6492f520f92b5f261f6cc025f04cd54e31596"
+ },
+ "notes_rescored": {
+  "rescored_from": "b835ce47bc2cbea5",
+  "rule": "exclude a (tier, context) only when the reference arm's 95% Wilson upper bound is below the floor",
+  "why": "a hard threshold on the point estimate is a knife-edge: 43/48 vs 44/48 on the same model and items decided a tier's existence between two backends"
+ },
+ "reference": {
+  "method": {
+   "family": "none",
+   "impl": "llama.cpp -ctk f16 -ctv f16"
+  },
+  "name": "f16",
+  "rungs": [
+   {
+    "context": 1024,
+    "cost": {
+     "decode_tok_per_s": 34.29,
+     "kv_bytes_per_token_measured": 0.0,
+     "peak_vram_bytes": 10824790016,
+     "prefill_ms": 6154.93,
+     "repeats": 1
+    },
+    "quality": {
+     "_doc_tokens_mean": 1042.4,
+     "_truncated_misses": {
+      "ci95": [
+       0.0,
+       0.0196
+      ],
+      "hits": 0,
+      "n": 192,
+      "rate": 0.0
+     },
+     "task_success": {
+      "by_depth": {
+       "10": {
+        "ci95": [
+         0.8602,
+         0.9885
+        ],
+        "hits": 46,
+        "n": 48,
+        "rate": 0.9583333333333334
+       },
+       "50": {
+        "ci95": [
+         0.8045,
+         0.9671
+        ],
+        "hits": 44,
+        "n": 48,
+        "rate": 0.9166666666666666
+       },
+       "90": {
+        "ci95": [
+         0.9259,
+         1.0
+        ],
+        "hits": 48,
+        "n": 48,
+        "rate": 1.0
+       }
+      },
+      "by_tier": {
+       "t1_retrieve": {
+        "ci95": [
+         0.9259,
+         1.0
+        ],
+        "hits": 48,
+        "n": 48,
+        "rate": 1.0
+       },
+       "t2_link": {
+        "ci95": [
+         0.8602,
+         0.9885
+        ],
+        "hits": 46,
+        "n": 48,
+        "rate": 0.9583333333333334
+       },
+       "t4_distractor": {
+        "ci95": [
+         0.8045,
+         0.9671
+        ],
+        "hits": 44,
+        "n": 48,
+        "rate": 0.9166666666666666
+       }
+      },
+      "overall": {
+       "ci95": [
+        0.9121,
+        0.9808
+       ],
+       "hits": 138,
+       "n": 144,
+       "rate": 0.9583333333333334
+      }
+     }
+    },
+    "ran": true
+   }
+  ]
+ },
+ "run_id": "6027dde032a74f048cdeee694e16e155",
+ "schema_version": "0.1.0",
+ "system": {
+  "arch": "x86_64",
+  "backend": "cpu",
+  "cpu_cores": 32,
+  "cpu_model": "13th Gen Intel(R) Core(TM) i9-13900",
+  "os": "linux",
+  "os_version": "6.17.0-1032-oem",
+  "ram_bytes": 33339334656
+ },
+ "tool": {
+  "build_sha": "c4b9d9ad10b3925dc3ff6b9d7e0444d9412b2fb3",
+  "name": "kv-audit",
+  "version": "0.1.0"
+ },
+ "utc": "2026-08-29T11:08:38Z",
+ "workload": {
+  "contexts": [
+   1024
+  ],
+  "excluded_tiers": {
+   "t3_aggregate": {
+    "contexts": [
+     1024
+    ],
+    "reason": "reference arm's 95% upper bound is below reference_floor",
+    "reference": {
+     "1024": {
+      "ci95_upper": 0.0741,
+      "hits": 0,
+      "n": 48,
+      "rate": 0.0
+     }
+    }
+   }
+  },
+  "id": "kvaudit-2026.1-draft",
+  "model": {
+   "head_dim": 128,
+   "kv_dtype": "f16",
+   "n_kv_heads": 8,
+   "n_layers": 28,
+   "name": "q3-1.7b-Q4_K_M.gguf",
+   "sha256": "4847669d2a6f8e7e8f01538fdf16c80d36e8c81796fddacde98c98b0d3246f14"
+  },
+  "reference_floor": 0.9,
+  "sha256": "3931af43284569cb049c5ecd24e19ab9427c1231dfbd75d72ab67fa74f5580df"
+ }
+}

@@ -1,0 +1,940 @@
+{
+ "_kv_measurement": {
+  "f16": {
+   "large": 16384,
+   "measured_in": "vram",
+   "small": 2048
+  },
+  "q4_0": {
+   "large": 16384,
+   "measured_in": "vram",
+   "small": 2048
+  },
+  "q8_0": {
+   "large": 16384,
+   "measured_in": "vram",
+   "small": 2048
+  }
+ },
+ "arms": [
+  {
+   "method": {
+    "family": "q8_0",
+    "impl": "llama.cpp -ctk q8_0 -ctv q8_0"
+   },
+   "name": "q8_0",
+   "rungs": [
+    {
+     "context": 1024,
+     "cost": {
+      "decode_tok_per_s": 64.77,
+      "kv_bytes_per_token_measured": 79579.42857142857,
+      "peak_vram_bytes": 2485125120,
+      "prefill_ms": 693.41,
+      "repeats": 1
+     },
+     "quality": {
+      "_doc_tokens_mean": 1040.8,
+      "_truncated_misses": {
+       "ci95": [
+        0.0,
+        0.026
+       ],
+       "hits": 0,
+       "n": 144,
+       "rate": 0.0
+      },
+      "task_success": {
+       "by_depth": {
+        "10": {
+         "ci95": [
+          0.9259,
+          1.0
+         ],
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0
+        },
+        "50": {
+         "ci95": [
+          0.9259,
+          1.0
+         ],
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0
+        },
+        "90": {
+         "ci95": [
+          0.9259,
+          1.0
+         ],
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0
+        }
+       },
+       "by_tier": {
+        "t1_retrieve": {
+         "ci95": [
+          0.9259,
+          1.0
+         ],
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0
+        },
+        "t2_link": {
+         "ci95": [
+          0.9259,
+          1.0
+         ],
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0
+        },
+        "t4_distractor": {
+         "ci95": [
+          0.9259,
+          1.0
+         ],
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0
+        }
+       },
+       "overall": {
+        "ci95": [
+         0.974,
+         1.0
+        ],
+        "hits": 144,
+        "n": 144,
+        "rate": 1.0
+       }
+      }
+     },
+     "ran": true
+    },
+    {
+     "context": 4096,
+     "cost": {
+      "decode_tok_per_s": 50.71,
+      "kv_bytes_per_token_measured": 79579.42857142857,
+      "peak_vram_bytes": 2732589056,
+      "prefill_ms": 2924.68,
+      "repeats": 1
+     },
+     "quality": {
+      "_doc_tokens_mean": 4112.5,
+      "_truncated_misses": {
+       "ci95": [
+        0.0,
+        0.026
+       ],
+       "hits": 0,
+       "n": 144,
+       "rate": 0.0
+      },
+      "task_success": {
+       "by_depth": {
+        "10": {
+         "ci95": [
+          0.9259,
+          1.0
+         ],
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0
+        },
+        "50": {
+         "ci95": [
+          0.9259,
+          1.0
+         ],
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0
+        },
+        "90": {
+         "ci95": [
+          0.9259,
+          1.0
+         ],
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0
+        }
+       },
+       "by_tier": {
+        "t1_retrieve": {
+         "ci95": [
+          0.9259,
+          1.0
+         ],
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0
+        },
+        "t2_link": {
+         "ci95": [
+          0.9259,
+          1.0
+         ],
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0
+        },
+        "t4_distractor": {
+         "ci95": [
+          0.9259,
+          1.0
+         ],
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0
+        }
+       },
+       "overall": {
+        "ci95": [
+         0.974,
+         1.0
+        ],
+        "hits": 144,
+        "n": 144,
+        "rate": 1.0
+       }
+      }
+     },
+     "ran": true
+    },
+    {
+     "context": 16384,
+     "cost": {
+      "decode_tok_per_s": 27.34,
+      "kv_bytes_per_token_measured": 79579.42857142857,
+      "peak_vram_bytes": 3707764736,
+      "prefill_ms": 14958.02,
+      "repeats": 1
+     },
+     "quality": {
+      "_doc_tokens_mean": 16379.8,
+      "_truncated_misses": {
+       "ci95": [
+        0.0,
+        0.0385
+       ],
+       "hits": 0,
+       "n": 96,
+       "rate": 0.0
+      },
+      "task_success": {
+       "by_depth": {
+        "10": {
+         "ci95": [
+          0.8426,
+          0.9945
+         ],
+         "hits": 31,
+         "n": 32,
+         "rate": 0.96875
+        },
+        "50": {
+         "ci95": [
+          0.8928,
+          1.0
+         ],
+         "hits": 32,
+         "n": 32,
+         "rate": 1.0
+        },
+        "90": {
+         "ci95": [
+          0.8928,
+          1.0
+         ],
+         "hits": 32,
+         "n": 32,
+         "rate": 1.0
+        }
+       },
+       "by_tier": {
+        "t1_retrieve": {
+         "ci95": [
+          0.9259,
+          1.0
+         ],
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0
+        },
+        "t2_link": {
+         "ci95": [
+          0.891,
+          0.9963
+         ],
+         "hits": 47,
+         "n": 48,
+         "rate": 0.9791666666666666
+        }
+       },
+       "overall": {
+        "ci95": [
+         0.9433,
+         0.9982
+        ],
+        "hits": 95,
+        "n": 96,
+        "rate": 0.9895833333333334
+       }
+      }
+     },
+     "ran": true
+    }
+   ]
+  },
+  {
+   "method": {
+    "family": "q4_0",
+    "impl": "llama.cpp -ctk q4_0 -ctv q4_0"
+   },
+   "name": "q4_0",
+   "rungs": [
+    {
+     "context": 1024,
+     "cost": {
+      "decode_tok_per_s": 64.35,
+      "kv_bytes_per_token_measured": 42715.42857142857,
+      "peak_vram_bytes": 2428502016,
+      "prefill_ms": 690.8,
+      "repeats": 1
+     },
+     "quality": {
+      "_doc_tokens_mean": 1040.8,
+      "_truncated_misses": {
+       "ci95": [
+        0.0,
+        0.026
+       ],
+       "hits": 0,
+       "n": 144,
+       "rate": 0.0
+      },
+      "task_success": {
+       "by_depth": {
+        "10": {
+         "ci95": [
+          0.9259,
+          1.0
+         ],
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0
+        },
+        "50": {
+         "ci95": [
+          0.9259,
+          1.0
+         ],
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0
+        },
+        "90": {
+         "ci95": [
+          0.891,
+          0.9963
+         ],
+         "hits": 47,
+         "n": 48,
+         "rate": 0.9791666666666666
+        }
+       },
+       "by_tier": {
+        "t1_retrieve": {
+         "ci95": [
+          0.9259,
+          1.0
+         ],
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0
+        },
+        "t2_link": {
+         "ci95": [
+          0.891,
+          0.9963
+         ],
+         "hits": 47,
+         "n": 48,
+         "rate": 0.9791666666666666
+        },
+        "t4_distractor": {
+         "ci95": [
+          0.9259,
+          1.0
+         ],
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0
+        }
+       },
+       "overall": {
+        "ci95": [
+         0.9617,
+         0.9988
+        ],
+        "hits": 143,
+        "n": 144,
+        "rate": 0.9930555555555556
+       }
+      }
+     },
+     "ran": true
+    },
+    {
+     "context": 4096,
+     "cost": {
+      "decode_tok_per_s": 51.29,
+      "kv_bytes_per_token_measured": 42715.42857142857,
+      "peak_vram_bytes": 2562719744,
+      "prefill_ms": 2874.55,
+      "repeats": 1
+     },
+     "quality": {
+      "_doc_tokens_mean": 4112.5,
+      "_truncated_misses": {
+       "ci95": [
+        0.0,
+        0.026
+       ],
+       "hits": 0,
+       "n": 144,
+       "rate": 0.0
+      },
+      "task_success": {
+       "by_depth": {
+        "10": {
+         "ci95": [
+          0.9259,
+          1.0
+         ],
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0
+        },
+        "50": {
+         "ci95": [
+          0.891,
+          0.9963
+         ],
+         "hits": 47,
+         "n": 48,
+         "rate": 0.9791666666666666
+        },
+        "90": {
+         "ci95": [
+          0.891,
+          0.9963
+         ],
+         "hits": 47,
+         "n": 48,
+         "rate": 0.9791666666666666
+        }
+       },
+       "by_tier": {
+        "t1_retrieve": {
+         "ci95": [
+          0.9259,
+          1.0
+         ],
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0
+        },
+        "t2_link": {
+         "ci95": [
+          0.891,
+          0.9963
+         ],
+         "hits": 47,
+         "n": 48,
+         "rate": 0.9791666666666666
+        },
+        "t4_distractor": {
+         "ci95": [
+          0.891,
+          0.9963
+         ],
+         "hits": 47,
+         "n": 48,
+         "rate": 0.9791666666666666
+        }
+       },
+       "overall": {
+        "ci95": [
+         0.9508,
+         0.9962
+        ],
+        "hits": 142,
+        "n": 144,
+        "rate": 0.9861111111111112
+       }
+      }
+     },
+     "ran": true
+    },
+    {
+     "context": 16384,
+     "cost": {
+      "decode_tok_per_s": 25.97,
+      "kv_bytes_per_token_measured": 42715.42857142857,
+      "peak_vram_bytes": 3084910592,
+      "prefill_ms": 14992.39,
+      "repeats": 1
+     },
+     "quality": {
+      "_doc_tokens_mean": 16379.8,
+      "_truncated_misses": {
+       "ci95": [
+        0.0,
+        0.0385
+       ],
+       "hits": 0,
+       "n": 96,
+       "rate": 0.0
+      },
+      "task_success": {
+       "by_depth": {
+        "10": {
+         "ci95": [
+          0.7985,
+          0.9827
+         ],
+         "hits": 30,
+         "n": 32,
+         "rate": 0.9375
+        },
+        "50": {
+         "ci95": [
+          0.8426,
+          0.9945
+         ],
+         "hits": 31,
+         "n": 32,
+         "rate": 0.96875
+        },
+        "90": {
+         "ci95": [
+          0.7578,
+          0.9676
+         ],
+         "hits": 29,
+         "n": 32,
+         "rate": 0.90625
+        }
+       },
+       "by_tier": {
+        "t1_retrieve": {
+         "ci95": [
+          0.9259,
+          1.0
+         ],
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0
+        },
+        "t2_link": {
+         "ci95": [
+          0.753,
+          0.9414
+         ],
+         "hits": 42,
+         "n": 48,
+         "rate": 0.875
+        }
+       },
+       "overall": {
+        "ci95": [
+         0.8703,
+         0.971
+        ],
+        "hits": 90,
+        "n": 96,
+        "rate": 0.9375
+       }
+      }
+     },
+     "ran": true
+    }
+   ]
+  }
+ ],
+ "integrity": {
+  "result_hash": "c6928f561bf26cc2f488a0217f4a2b05fa323a3c68373277c1f30905c7ab26ad"
+ },
+ "notes_rescored": {
+  "rescored_from": "cbce087928eec4af",
+  "rule": "exclude a (tier, context) only when the reference arm's 95% Wilson upper bound is below the floor",
+  "why": "a hard threshold on the point estimate is a knife-edge: 43/48 vs 44/48 on the same model and items decided a tier's existence between two backends"
+ },
+ "reference": {
+  "method": {
+   "family": "none",
+   "impl": "llama.cpp -ctk f16 -ctv f16"
+  },
+  "name": "f16",
+  "rungs": [
+   {
+    "context": 1024,
+    "cost": {
+     "decode_tok_per_s": 53.15,
+     "kv_bytes_per_token_measured": 148480.0,
+     "peak_vram_bytes": 2587885568,
+     "prefill_ms": 794.62,
+     "repeats": 1
+    },
+    "quality": {
+     "_doc_tokens_mean": 1042.4,
+     "_truncated_misses": {
+      "ci95": [
+       0.0,
+       0.0196
+      ],
+      "hits": 0,
+      "n": 192,
+      "rate": 0.0
+     },
+     "task_success": {
+      "by_depth": {
+       "10": {
+        "ci95": [
+         0.9259,
+         1.0
+        ],
+        "hits": 48,
+        "n": 48,
+        "rate": 1.0
+       },
+       "50": {
+        "ci95": [
+         0.9259,
+         1.0
+        ],
+        "hits": 48,
+        "n": 48,
+        "rate": 1.0
+       },
+       "90": {
+        "ci95": [
+         0.9259,
+         1.0
+        ],
+        "hits": 48,
+        "n": 48,
+        "rate": 1.0
+       }
+      },
+      "by_tier": {
+       "t1_retrieve": {
+        "ci95": [
+         0.9259,
+         1.0
+        ],
+        "hits": 48,
+        "n": 48,
+        "rate": 1.0
+       },
+       "t2_link": {
+        "ci95": [
+         0.9259,
+         1.0
+        ],
+        "hits": 48,
+        "n": 48,
+        "rate": 1.0
+       },
+       "t4_distractor": {
+        "ci95": [
+         0.9259,
+         1.0
+        ],
+        "hits": 48,
+        "n": 48,
+        "rate": 1.0
+       }
+      },
+      "overall": {
+       "ci95": [
+        0.974,
+        1.0
+       ],
+       "hits": 144,
+       "n": 144,
+       "rate": 1.0
+      }
+     }
+    },
+    "ran": true
+   },
+   {
+    "context": 4096,
+    "cost": {
+     "decode_tok_per_s": 44.47,
+     "kv_bytes_per_token_measured": 148480.0,
+     "peak_vram_bytes": 3045064704,
+     "prefill_ms": 3850.17,
+     "repeats": 1
+    },
+    "quality": {
+     "_doc_tokens_mean": 4108.2,
+     "_truncated_misses": {
+      "ci95": [
+       0.0,
+       0.0196
+      ],
+      "hits": 0,
+      "n": 192,
+      "rate": 0.0
+     },
+     "task_success": {
+      "by_depth": {
+       "10": {
+        "ci95": [
+         0.9259,
+         1.0
+        ],
+        "hits": 48,
+        "n": 48,
+        "rate": 1.0
+       },
+       "50": {
+        "ci95": [
+         0.891,
+         0.9963
+        ],
+        "hits": 47,
+        "n": 48,
+        "rate": 0.9791666666666666
+       },
+       "90": {
+        "ci95": [
+         0.9259,
+         1.0
+        ],
+        "hits": 48,
+        "n": 48,
+        "rate": 1.0
+       }
+      },
+      "by_tier": {
+       "t1_retrieve": {
+        "ci95": [
+         0.9259,
+         1.0
+        ],
+        "hits": 48,
+        "n": 48,
+        "rate": 1.0
+       },
+       "t2_link": {
+        "ci95": [
+         0.9259,
+         1.0
+        ],
+        "hits": 48,
+        "n": 48,
+        "rate": 1.0
+       },
+       "t4_distractor": {
+        "ci95": [
+         0.891,
+         0.9963
+        ],
+        "hits": 47,
+        "n": 48,
+        "rate": 0.9791666666666666
+       }
+      },
+      "overall": {
+       "ci95": [
+        0.9617,
+        0.9988
+       ],
+       "hits": 143,
+       "n": 144,
+       "rate": 0.9930555555555556
+      }
+     }
+    },
+    "ran": true
+   },
+   {
+    "context": 16384,
+    "cost": {
+     "decode_tok_per_s": 40.08,
+     "kv_bytes_per_token_measured": 148480.0,
+     "peak_vram_bytes": 4869586944,
+     "prefill_ms": 14529.15,
+     "repeats": 1
+    },
+    "quality": {
+     "_doc_tokens_mean": 16416.9,
+     "_truncated_misses": {
+      "ci95": [
+       0.0,
+       0.0196
+      ],
+      "hits": 0,
+      "n": 192,
+      "rate": 0.0
+     },
+     "task_success": {
+      "by_depth": {
+       "10": {
+        "ci95": [
+         0.8426,
+         0.9945
+        ],
+        "hits": 31,
+        "n": 32,
+        "rate": 0.96875
+       },
+       "50": {
+        "ci95": [
+         0.8426,
+         0.9945
+        ],
+        "hits": 31,
+        "n": 32,
+        "rate": 0.96875
+       },
+       "90": {
+        "ci95": [
+         0.8426,
+         0.9945
+        ],
+        "hits": 31,
+        "n": 32,
+        "rate": 0.96875
+       }
+      },
+      "by_tier": {
+       "t1_retrieve": {
+        "ci95": [
+         0.9259,
+         1.0
+        ],
+        "hits": 48,
+        "n": 48,
+        "rate": 1.0
+       },
+       "t2_link": {
+        "ci95": [
+         0.8316,
+         0.9785
+        ],
+        "hits": 45,
+        "n": 48,
+        "rate": 0.9375
+       }
+      },
+      "overall": {
+       "ci95": [
+        0.9121,
+        0.9893
+       ],
+       "hits": 93,
+       "n": 96,
+       "rate": 0.96875
+      }
+     }
+    },
+    "ran": true
+   }
+  ]
+ },
+ "run_id": "411e46db7c1c4703a2a69acf30d9ab8c",
+ "schema_version": "0.1.0",
+ "system": {
+  "arch": "x86_64",
+  "backend": "cuda",
+  "cpu_cores": 32,
+  "cpu_model": "13th Gen Intel(R) Core(TM) i9-13900",
+  "driver_version": "595.84",
+  "gpu_count": 1,
+  "gpu_model": "NVIDIA RTX A2000 12GB",
+  "gpu_vram_bytes": 12878610432,
+  "os": "linux",
+  "os_version": "6.17.0-1032-oem",
+  "ram_bytes": 33339334656
+ },
+ "tool": {
+  "build_sha": "2b69d2539b6137a714c81fcb982421105ecd4b43",
+  "name": "kv-audit",
+  "version": "0.1.0"
+ },
+ "utc": "2026-08-29T12:27:15Z",
+ "workload": {
+  "contexts": [
+   1024,
+   4096,
+   16384
+  ],
+  "excluded_tiers": {
+   "t3_aggregate": {
+    "contexts": [
+     1024,
+     4096,
+     16384
+    ],
+    "reason": "reference arm's 95% upper bound is below reference_floor",
+    "reference": {
+     "1024": {
+      "ci95_upper": 0.2958,
+      "hits": 8,
+      "n": 48,
+      "rate": 0.1667
+     },
+     "16384": {
+      "ci95_upper": 0.2217,
+      "hits": 5,
+      "n": 48,
+      "rate": 0.1042
+     },
+     "4096": {
+      "ci95_upper": 0.2958,
+      "hits": 8,
+      "n": 48,
+      "rate": 0.1667
+     }
+    }
+   },
+   "t4_distractor": {
+    "contexts": [
+     16384
+    ],
+    "reason": "reference arm's 95% upper bound is below reference_floor",
+    "reference": {
+     "16384": {
+      "ci95_upper": 0.8981,
+      "hits": 39,
+      "n": 48,
+      "rate": 0.8125
+     }
+    }
+   }
+  },
+  "id": "kvaudit-2026.1-draft",
+  "model": {
+   "head_dim": 128,
+   "kv_dtype": "f16",
+   "n_kv_heads": 8,
+   "n_layers": 36,
+   "name": "Ternary-Bonsai-8B-Q2_0_g64.gguf",
+   "sha256": "e17b298d84ee78797916ae5c2ecc8211469cc65cccfe3080cd9a9bb503fbc55e"
+  },
+  "reference_floor": 0.9,
+  "sha256": "3931af43284569cb049c5ecd24e19ab9427c1231dfbd75d72ab67fa74f5580df"
+ }
+}
