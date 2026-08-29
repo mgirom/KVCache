@@ -43,6 +43,13 @@ DEFAULT_REPO = "mgirom/KVCache"
 
 #: Remembered answer to the post-run offer. "ask" is the default: the question is worth
 #: asking, and a benchmark that shares by default is a benchmark nobody trusts twice.
+#:
+#: PREF_NEVER is deliberately NOT offered as a keystroke in the prompt -- a single
+#: mistyped character should not permanently remove someone from the record. It is
+#: still reachable, via `--never-share`, and documented in PRIVACY.md. Removing the
+#: option entirely would leave anyone who does not want to share being asked after
+#: every run forever, which is nagware; keeping it one deliberate command away is the
+#: compromise.
 PREF_ASK, PREF_ALWAYS, PREF_NEVER = "ask", "always", "never"
 
 CONSENT_PATH = os.path.join(
@@ -117,17 +124,15 @@ def offer_to_share(result_path: str, summary: str = "") -> str:
           file=sys.stderr)
     print("-" * 74, file=sys.stderr)
     try:
-        ans = input("  [y] yes  [a] always  [n] not this time  [never] : ").strip().lower()
+        ans = input("  [y] yes   [a] always   [n] not this time : ").strip().lower()
     except (EOFError, KeyboardInterrupt):
         print("\n  not shared.", file=sys.stderr)
         return "no"
     if ans in ("a", "always"):
         record_pref(PREF_ALWAYS)
+        print("  recorded -- later runs share without asking. "
+              "Undo with --forget-consent.", file=sys.stderr)
         return "always"
-    if ans in ("never",):
-        record_pref(PREF_NEVER)
-        print("  won't ask again. Change with --forget-consent.", file=sys.stderr)
-        return "never"
     return "yes" if ans in ("y", "yes") else "no"
 
 
@@ -327,8 +332,18 @@ def main():
     ap.add_argument("--endpoint", default="")
     ap.add_argument("--yes", action="store_true")
     ap.add_argument("--dry-run", action="store_true")
-    ap.add_argument("--forget-consent", action="store_true")
+    ap.add_argument("--forget-consent", action="store_true",
+                    help="clear the remembered answer, so the offer is made again")
+    ap.add_argument("--never-share", action="store_true",
+                    help="stop being asked. Not offered as a keystroke in the prompt, "
+                         "because one mistyped character should not remove you from "
+                         "the record permanently.")
     a = ap.parse_args()
+    if a.never_share:
+        record_pref(PREF_NEVER)
+        print(f"you will not be asked again ({CONSENT_PATH}). "
+              f"Undo with --forget-consent.")
+        return 0
     if a.forget_consent:
         forget_consent()
         return 0

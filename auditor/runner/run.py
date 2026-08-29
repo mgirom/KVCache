@@ -314,6 +314,8 @@ def main():
     ap.add_argument("--endpoint", default="",
                     help="hosted service instead of the repository, with --route http")
     ap.add_argument("--route", default="github", choices=("github", "http"))
+    ap.add_argument("--never-share", action="store_true",
+                    help="stop being asked to share, permanently")
     ap.add_argument("--yes", action="store_true",
                     help="skip the one-time confirmation. For CI and unattended runs; "
                          "the result records that it was not interactively confirmed.")
@@ -634,6 +636,14 @@ def main():
 
     # Ask, after the run, unless the answer is already known. --upload is a standing
     # yes; a non-interactive session is always a no.
+    if a.never_share:
+        try:
+            import submit as S
+            S.record_pref(S.PREF_NEVER)
+            print("\nyou will not be asked to share again. "
+                  "Undo with: python3 auditor/runner/submit.py --forget-consent")
+        except Exception:                                             # noqa: BLE001
+            pass
     want_upload = a.upload
     if not want_upload and not errs:
         try:

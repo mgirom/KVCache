@@ -68,9 +68,14 @@ Not "not currently" — the uploader strips these and the field allowlist reject
 
 When a run finishes it **asks** whether to share, and says why: submissions are pooled
 so you can see how your machine compares with others running the same model and
-settings. Your options are *yes* (this run), *always*, *not this time*, or *never*.
-`--upload` is a standing yes for scripted runs. A non-interactive session — a pipe, a
-cron job, CI — always declines, because silence is not agreement.
+settings. Your options are *yes* (this run), *always*, or *not this time*. `--upload`
+is a standing yes for scripted runs. A non-interactive session — a pipe, a cron job,
+CI — always declines, because silence is not agreement.
+
+**To stop being asked at all:** `python3 auditor/runner/submit.py --never-share`, or
+`--never-share` on any run. It is a flag rather than a keystroke in the prompt so that
+one mistyped character cannot permanently remove someone from the record — not to make
+it hard to find, which is why it is documented here and in `--help`.
 
 - The **first** upload from a machine prints the entire payload — the bytes, not a
   summary — and asks once. Later runs upload when the run finishes, without prompting.

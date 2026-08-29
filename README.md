@@ -144,9 +144,11 @@ basis. Every refusal prints the measurement that justifies it.
 
 When a run finishes it **asks** whether to share the result, so you can see how your
 machine compares with others running the same model and settings. You can say yes,
-always, not this time, or never. A non-interactive session always declines — silence is
-not agreement — and the first upload from a machine prints the entire payload before
+always, or not this time. A non-interactive session always declines — silence is not
+agreement — and the first upload from a machine prints the entire payload before
 sending anything.
+
+To stop being asked: `--never-share`.
 
 See [`auditor/PRIVACY.md`](auditor/PRIVACY.md) for the closed field list and how to
 delete a submission afterwards.
