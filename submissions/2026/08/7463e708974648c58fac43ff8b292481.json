@@ -1,0 +1,274 @@
+{
+ "_kv_measurement": {
+  "f16": {
+   "large": 4096,
+   "measured_in": "vram",
+   "small": 1024
+  },
+  "q8_0": {
+   "large": 4096,
+   "measured_in": "vram",
+   "small": 1024
+  }
+ },
+ "arms": [
+  {
+   "method": {
+    "family": "q8_0",
+    "impl": "llama.cpp -ctk q8_0 -ctv q8_0"
+   },
+   "name": "q8_0",
+   "rungs": [
+    {
+     "context": 1024,
+     "cost": {
+      "decode_tok_per_s": 126.83,
+      "kv_bytes_per_token_measured": 62122.666666666664,
+      "peak_vram_bytes": 1377828864,
+      "prefill_ms": 207.79,
+      "repeats": 1
+     },
+     "quality": {
+      "_doc_tokens_mean": 1042.4,
+      "_truncated_misses": {
+       "ci95": [
+        0.0,
+        0.1759
+       ],
+       "hits": 0,
+       "n": 18,
+       "rate": 0.0
+      },
+      "task_success": {
+       "by_depth": {
+        "10": {
+         "ci95": [
+          0.6097,
+          1.0
+         ],
+         "hits": 6,
+         "n": 6,
+         "rate": 1.0
+        },
+        "50": {
+         "ci95": [
+          0.6097,
+          1.0
+         ],
+         "hits": 6,
+         "n": 6,
+         "rate": 1.0
+        },
+        "90": {
+         "ci95": [
+          0.6097,
+          1.0
+         ],
+         "hits": 6,
+         "n": 6,
+         "rate": 1.0
+        }
+       },
+       "by_tier": {
+        "t1_retrieve": {
+         "ci95": [
+          0.6097,
+          1.0
+         ],
+         "hits": 6,
+         "n": 6,
+         "rate": 1.0
+        },
+        "t2_link": {
+         "ci95": [
+          0.6097,
+          1.0
+         ],
+         "hits": 6,
+         "n": 6,
+         "rate": 1.0
+        },
+        "t4_distractor": {
+         "ci95": [
+          0.6097,
+          1.0
+         ],
+         "hits": 6,
+         "n": 6,
+         "rate": 1.0
+        }
+       },
+       "overall": {
+        "ci95": [
+         0.8241,
+         1.0
+        ],
+        "hits": 18,
+        "n": 18,
+        "rate": 1.0
+       }
+      }
+     },
+     "ran": true
+    }
+   ]
+  }
+ ],
+ "integrity": {
+  "result_hash": "84f4fbe0d3da3aae6c6ace9c79742c4aafb8b4ac1456a4ed4b7f2d89ff6e93cf"
+ },
+ "reference": {
+  "method": {
+   "family": "none",
+   "impl": "llama.cpp -ctk f16 -ctv f16"
+  },
+  "name": "f16",
+  "rungs": [
+   {
+    "context": 1024,
+    "cost": {
+     "decode_tok_per_s": 130.15,
+     "kv_bytes_per_token_measured": 116053.33333333333,
+     "peak_vram_bytes": 1459617792,
+     "prefill_ms": 195.0,
+     "repeats": 1
+    },
+    "quality": {
+     "_doc_tokens_mean": 1039.8,
+     "_truncated_misses": {
+      "ci95": [
+       0.0,
+       0.138
+      ],
+      "hits": 0,
+      "n": 24,
+      "rate": 0.0
+     },
+     "task_success": {
+      "by_depth": {
+       "10": {
+        "ci95": [
+         0.6097,
+         1.0
+        ],
+        "hits": 6,
+        "n": 6,
+        "rate": 1.0
+       },
+       "50": {
+        "ci95": [
+         0.6097,
+         1.0
+        ],
+        "hits": 6,
+        "n": 6,
+        "rate": 1.0
+       },
+       "90": {
+        "ci95": [
+         0.6097,
+         1.0
+        ],
+        "hits": 6,
+        "n": 6,
+        "rate": 1.0
+       }
+      },
+      "by_tier": {
+       "t1_retrieve": {
+        "ci95": [
+         0.6097,
+         1.0
+        ],
+        "hits": 6,
+        "n": 6,
+        "rate": 1.0
+       },
+       "t2_link": {
+        "ci95": [
+         0.6097,
+         1.0
+        ],
+        "hits": 6,
+        "n": 6,
+        "rate": 1.0
+       },
+       "t4_distractor": {
+        "ci95": [
+         0.6097,
+         1.0
+        ],
+        "hits": 6,
+        "n": 6,
+        "rate": 1.0
+       }
+      },
+      "overall": {
+       "ci95": [
+        0.8241,
+        1.0
+       ],
+       "hits": 18,
+       "n": 18,
+       "rate": 1.0
+      }
+     }
+    },
+    "ran": true
+   }
+  ]
+ },
+ "run_id": "7463e708974648c58fac43ff8b292481",
+ "schema_version": "0.1.0",
+ "system": {
+  "arch": "x86_64",
+  "backend": "cuda",
+  "cpu_cores": 32,
+  "cpu_model": "13th Gen Intel(R) Core(TM) i9-13900",
+  "driver_version": "595.84",
+  "gpu_count": 1,
+  "gpu_model": "NVIDIA RTX A2000 12GB",
+  "gpu_vram_bytes": 12878610432,
+  "os": "linux",
+  "os_version": "6.17.0-1032-oem",
+  "ram_bytes": 33339334656
+ },
+ "tool": {
+  "build_sha": "4b2c9ac85c55aabdd20e64b1ca744b601ce31976",
+  "name": "kv-audit",
+  "version": "0.1.0"
+ },
+ "utc": "2026-08-29T16:47:26Z",
+ "workload": {
+  "contexts": [
+   1024
+  ],
+  "excluded_tiers": {
+   "t3_aggregate": {
+    "contexts": [
+     1024
+    ],
+    "reason": "reference arm below reference_floor at this context",
+    "reference": {
+     "1024": {
+      "hits": 0,
+      "n": 6,
+      "rate": 0.0
+     }
+    }
+   }
+  },
+  "id": "kvaudit-2026.1-draft",
+  "model": {
+   "head_dim": 128,
+   "kv_dtype": "f16",
+   "n_kv_heads": 8,
+   "n_layers": 28,
+   "name": "q3-1.7b-Q4_K_M.gguf",
+   "sha256": "4847669d2a6f8e7e8f01538fdf16c80d36e8c81796fddacde98c98b0d3246f14"
+  },
+  "profile": "quick",
+  "reference_floor": 0.9,
+  "sha256": "3931af43284569cb049c5ecd24e19ab9427c1231dfbd75d72ab67fa74f5580df"
+ }
+}
