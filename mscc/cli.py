@@ -29,7 +29,7 @@ import numpy as np
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
-sys.path.insert(0, os.path.join(_ROOT, "lib"))
+sys.path.insert(0, os.path.join(_ROOT, "alphabet", "scripts"))
 sys.path.insert(0, _ROOT)
 
 from mscc import codec as mcodec
@@ -234,13 +234,25 @@ def cmd_kvfit(a):
                 corpus=os.path.basename(a.corpus),
                 corpus_sha=mcodec.corpus_digest(text)[:16],
                 n_states=int(n_tok), seqlen=a.seqlen)
-    books = {}
-    for i, key in enumerate(sorted(states)):
-        books[key] = mcodec.fit(states.pop(key).float(), a.dims, a.unit_bits,
-                                meta={"kv_layer": key[0], "kv_unit": key[1],
-                                      **meta})
-        if i % 14 == 0:
-            print(f"  fitted {i + 1}/{2 * n_layers} units", flush=True)
+    if a.per_head:
+        # same TOTAL budget, split across heads: the basis stops mixing heads, which
+        # is what makes a code-space attention kernel affordable
+        meta["per_head"] = True
+        meta["bits_per_head"] = a.unit_bits // kv_heads
+        books = lkv.fit_kv_codebooks_perhead(
+            {k: v.float() for k, v in states.items()},
+            a.unit_bits // kv_heads, int(kv_heads), int(head_dim),
+            progress=lambda i, n, key: (i % 14 == 0 and
+                                        print(f"  fitted {i+1}/{n} units", flush=True)))
+        states.clear()
+    else:
+        books = {}
+        for i, key in enumerate(sorted(states)):
+            books[key] = mcodec.fit(states.pop(key).float(), a.dims, a.unit_bits,
+                                    meta={"kv_layer": key[0], "kv_unit": key[1],
+                                          **meta})
+            if i % 14 == 0:
+                print(f"  fitted {i + 1}/{2 * n_layers} units", flush=True)
     cb = mkv.KVCodebook(books=books, meta=meta)
     size = cb.save(a.out)
     raw = n_layers * 2 * kv_heads * head_dim * 16
@@ -478,6 +490,10 @@ def main(argv=None):
                          "(15.1x, full recall); 512 is the measured floor (28.4x, "
                          "10-of-12); 256 answers everything wrongly")
     kf.add_argument("--dims", type=int, default=1024)
+    kf.add_argument("--per-head", action="store_true",
+                    help="fit one basis per attention head instead of one across all "
+                         "of them, at the same total rate. Compresses worse; required "
+                         "for the code-space attention fold.")
     kf.add_argument("--seqlen", type=int, default=512)
     kf.add_argument("--tokens", type=int, default=12_288)
     kf.set_defaults(fn=cmd_kvfit)

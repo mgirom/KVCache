@@ -91,7 +91,9 @@ class KVCodebook:
         h = hashlib.sha256()
         h.update(json.dumps(self.meta, sort_keys=True,
                             separators=(",", ":")).encode())
-        for key in unit_keys(self.n_layers):
+        # iterate the books actually present, in canonical order, rather than assuming
+        # the (layer, k|v) layout -- a per-head codebook has units "k0".."k7"
+        for key in sorted(self.books):
             h.update(_tag(*key).encode() + b"\0" + self.books[key].sha().encode())
         return h.hexdigest()
 

@@ -302,6 +302,55 @@ def roundtrip_kv(kv, books):
     return decode_kv(encode_kv(kv, books), books, shapes, dtype, device)
 
 
+def head_slices(x, heads, head_dim):
+    """[n, heads*dim] -> list of [n, dim], one per head."""
+    return [x[:, h * head_dim:(h + 1) * head_dim].contiguous() for h in range(heads)]
+
+
+def fit_kv_codebooks_perhead(states, bits_per_head, heads, head_dim, progress=None,
+                             **kw):
+    """One codebook per (layer, K|V, HEAD) instead of one per (layer, K|V).
+
+    The shipped codec fits a single basis across all heads, which compresses better --
+    it can use cross-head correlation -- and is exactly what makes the codec unusable
+    inside attention: a query head that needs only its own head_dim must dot against
+    the whole joint code. A per-head basis costs compression and makes the code-space
+    fold affordable. Whether that trade is worth making is what running this measures.
+    """
+    from mscc import codec as mcodec
+    out = {}
+    keys = sorted(states)
+    for i, (layer, unit) in enumerate(keys):
+        X = states[(layer, unit)]
+        for h, Xh in enumerate(head_slices(X, heads, head_dim)):
+            out[(layer, f"{unit}{h}")] = mcodec.fit(
+                Xh, head_dim, bits_per_head,
+                meta={"kv_layer": int(layer), "kv_unit": unit, "kv_head": h,
+                      "per_head": True, **kw})
+        if progress:
+            progress(i, len(keys), (layer, unit))
+    return out
+
+
+def roundtrip_kv_prerope_perhead(model, kv, kpre, books, heads, head_dim, start=0):
+    """Same shape as roundtrip_kv_prerope, but decoding head by head."""
+    dtype, device = kv[0][0].dtype, kv[0][0].device
+    pairs = coding_pairs(kv, kpre)
+    rec = []
+    for l, (kk, vv) in enumerate(pairs):
+        out = []
+        for unit, t in (("k", kk), ("v", vv)):
+            x = to_matrix(t).to(device)
+            parts = []
+            for h, xh in enumerate(head_slices(x, heads, head_dim)):
+                cb = books[(l, f"{unit}{h}")]
+                parts.append(cb.decode(cb.encode(xh), device=device))
+            out.append(from_matrix(torch.cat(parts, 1), heads, head_dim, dtype, device))
+        rec.append((out[0], out[1]))
+    krot = rope_keys(model, [k for k, _ in rec], start=start)
+    return [(kr, v) for kr, (_, v) in zip(krot, rec)]
+
+
 def coding_pairs(kv, kpre=None):
     """The tensors the codec actually sees: pre-RoPE keys when we have them."""
     if kpre is None:

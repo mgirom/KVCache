@@ -37,6 +37,13 @@ to full precision to use. **It does not reduce live VRAM during inference**, so 
 not a replacement for `-ctk q4_0`. It competes against storing the cache uncompressed,
 where there is no standard alternative.
 
+There is a measured path to making it live, and an honest gap in it. The codec is
+linear, so the basis can fold into the query and attention could read the codes
+directly — verified exact. That needs a per-head basis, which at 15× **destroys the
+model (3/240)** and at **7.76× costs nothing measurable (236/240)**. No kernel exists
+yet, so this is a direction with evidence, not a feature. See
+[CODE-SPACE-ATTENTION.md](mscc/CODE-SPACE-ATTENTION.md).
+
 A frame records the conditions it was produced under and **refuses rather than
 degrades** — wrong model, wrong codebook, rate below the measured floor, unknown key
 basis — and every refusal prints the measurement that justifies it. That matters

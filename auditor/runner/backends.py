@@ -28,7 +28,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
-sys.path[:0] = [HERE, ROOT, os.path.join(ROOT, "lib")]
+sys.path[:0] = [HERE, ROOT, os.path.join(ROOT, "alphabet", "scripts")]
 
 
 class Backend:
@@ -196,9 +196,13 @@ class MsccBackend(Backend):
         t0 = time.perf_counter()
         kv, kpre = K.capture_kv_prerope(self.model, doc)
         if self.unit_bits:
-            kv = K.merge_exact(kv, K.roundtrip_kv_prerope(self.model, kv, kpre,
-                                                          self.cb.books),
-                               n_sink=self.sink)
+            if self.cb.meta.get("per_head"):
+                q_ = K.roundtrip_kv_prerope_perhead(
+                    self.model, kv, kpre, self.cb.books,
+                    int(self.cb.meta["kv_heads"]), int(self.cb.meta["head_dim"]))
+            else:
+                q_ = K.roundtrip_kv_prerope(self.model, kv, kpre, self.cb.books)
+            kv = K.merge_exact(kv, q_, n_sink=self.sink)
         prompt_ms = (time.perf_counter() - t0) * 1000.0
 
         t1 = time.perf_counter()
