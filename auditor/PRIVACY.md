@@ -64,10 +64,15 @@ Not "not currently" — the uploader strips these and the field allowlist reject
 
 ## Consent
 
-**Nothing is sent unless you pass `--upload`.** The tool is fully useful without it and
-that is the default.
+**Nothing is sent without you agreeing to it, and the tool is fully useful offline.**
 
-- The **first** `--upload` on a machine prints the entire payload — the bytes, not a
+When a run finishes it **asks** whether to share, and says why: submissions are pooled
+so you can see how your machine compares with others running the same model and
+settings. Your options are *yes* (this run), *always*, *not this time*, or *never*.
+`--upload` is a standing yes for scripted runs. A non-interactive session — a pipe, a
+cron job, CI — always declines, because silence is not agreement.
+
+- The **first** upload from a machine prints the entire payload — the bytes, not a
   summary — and asks once. Later runs upload when the run finishes, without prompting.
 - The answer is recorded in `~/.config/kv-audit/consent.json` **together with the
   version of the field list below**. Widening what is collected bumps that version and

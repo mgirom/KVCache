@@ -632,7 +632,18 @@ def main():
 
     print(f"\nwrote {a.out}")
 
-    if a.upload:
+    # Ask, after the run, unless the answer is already known. --upload is a standing
+    # yes; a non-interactive session is always a no.
+    want_upload = a.upload
+    if not want_upload and not errs:
+        try:
+            import submit as S
+            ans = S.offer_to_share(a.out)
+            want_upload = ans in ("yes", "always")
+        except Exception:                                             # noqa: BLE001
+            want_upload = False
+
+    if want_upload:
         if errs:
             print("\nNOT submitting: this result does not validate. A rejected row "
                   "helps nobody.", file=sys.stderr)
@@ -642,6 +653,8 @@ def main():
                 res = S.submit(a.out, route=a.route, repo=a.repo,
                                endpoint=a.endpoint, assume_yes=a.yes)
                 print("\nsubmitted: " + json.dumps(res))
+                if res.get("ok"):
+                    print("\n" + S.compare_with_peers(a.out, repo=a.repo))
             except Exception as e:                                    # noqa: BLE001
                 # a failed upload must never invalidate a good local run
                 print(f"\nsubmission failed ({type(e).__name__}: {e}).\n"

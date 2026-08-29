@@ -41,6 +41,10 @@ import upload as U                                            # noqa: E402
 FIELD_LIST_VERSION = "0.1.0"
 DEFAULT_REPO = "mgirom/KVCache"
 
+#: Remembered answer to the post-run offer. "ask" is the default: the question is worth
+#: asking, and a benchmark that shares by default is a benchmark nobody trusts twice.
+PREF_ASK, PREF_ALWAYS, PREF_NEVER = "ask", "always", "never"
+
 CONSENT_PATH = os.path.join(
     os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
     "kv-audit", "consent.json")
@@ -66,6 +70,65 @@ def record_consent(granted: bool) -> None:
                "field_list_version": FIELD_LIST_VERSION,
                "utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
               open(CONSENT_PATH, "w"), indent=1)
+
+
+def read_pref() -> str:
+    return read_consent().get("share_pref", PREF_ASK)
+
+
+def record_pref(pref: str) -> None:
+    c = read_consent()
+    c["share_pref"] = pref
+    c.setdefault("field_list_version", FIELD_LIST_VERSION)
+    c["utc"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    os.makedirs(os.path.dirname(CONSENT_PATH), exist_ok=True)
+    json.dump(c, open(CONSENT_PATH, "w"), indent=1)
+
+
+def offer_to_share(result_path: str, summary: str = "") -> str:
+    """Ask, after the run, whether to share -- and say what sharing is for.
+
+    The reason matters. "Send telemetry?" gets a no; "compare your machine against
+    others running the same thing" is the actual point of a submission and is what the
+    person gets back for it. Both are true here, so the question says the true one.
+
+    Returns one of yes / always / no / never. Non-interactive sessions always decline:
+    a benchmark must never take silence for agreement.
+    """
+    pref = read_pref()
+    if pref == PREF_NEVER:
+        return "never"
+    if pref == PREF_ALWAYS:
+        return "always"
+    if not sys.stdin.isatty():
+        return "no"
+
+    print("\n" + "-" * 74, file=sys.stderr)
+    print("Share this result?", file=sys.stderr)
+    print("  Submissions are pooled so you can see how your machine compares with "
+          "others\n  running the same model and settings -- which is the only way "
+          "the question\n  'what does this cost on MY hardware' ever gets answered.",
+          file=sys.stderr)
+    if summary:
+        print(f"\n{summary}", file=sys.stderr)
+    print("\n  What is sent: the measurements above, plus your hardware and OS model "
+          "numbers.\n  Never: hostname, username, file paths, IP, or anything from "
+          "your disk.\n  Full list and how to delete a submission: auditor/PRIVACY.md",
+          file=sys.stderr)
+    print("-" * 74, file=sys.stderr)
+    try:
+        ans = input("  [y] yes  [a] always  [n] not this time  [never] : ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print("\n  not shared.", file=sys.stderr)
+        return "no"
+    if ans in ("a", "always"):
+        record_pref(PREF_ALWAYS)
+        return "always"
+    if ans in ("never",):
+        record_pref(PREF_NEVER)
+        print("  won't ask again. Change with --forget-consent.", file=sys.stderr)
+        return "never"
+    return "yes" if ans in ("y", "yes") else "no"
 
 
 def forget_consent() -> None:
@@ -161,6 +224,86 @@ def _pull_request(repo: str, dest: str, body: str, run_id: str):
                 "path": dest, "url": pr.stdout.strip() or pr.stderr.strip()[:200]}
     finally:
         shutil.rmtree(work, ignore_errors=True)
+
+
+def compare_with_peers(result_path: str, repo: str = DEFAULT_REPO, timeout: int = 20):
+    """How this machine landed against everyone else running the same thing.
+
+    This is what a submitter gets back for submitting, so it runs after a successful
+    share rather than being promised and never delivered. Rows are matched on the same
+    workload hash, the same model hash and the same arm -- anything looser would be
+    comparing different measurements wearing the same units.
+    """
+    import urllib.error
+    import urllib.request
+    doc = json.load(open(result_path))
+    wl = doc["workload"]["sha256"]
+    mh = doc["workload"]["model"].get("sha256", "")
+    api = f"https://api.github.com/repos/{repo}/contents/submissions"
+
+    def fetch(url):
+        req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json",
+                                                   "User-Agent": "kv-audit"})
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.load(r)
+
+    peers = []
+    try:
+        stack = [api]
+        while stack and len(peers) < 200:
+            for e in fetch(stack.pop()):
+                if e["type"] == "dir":
+                    stack.append(e["url"])
+                elif e["name"].endswith(".json"):
+                    try:
+                        with urllib.request.urlopen(e["download_url"], timeout=timeout) as r:
+                            peers.append(json.load(r))
+                    except Exception:                                  # noqa: BLE001, PERF203
+                        continue
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return ("No submissions in the repository yet -- yours will be the first "
+                    "to compare against.")
+        return f"(could not fetch peer results: HTTP {e.code})"
+    except Exception as e:                                             # noqa: BLE001
+        return f"(could not fetch peer results: {type(e).__name__})"
+
+    def pooled(d, arm_name):
+        for a in [d.get("reference", {})] + d.get("arms", []):
+            if a.get("name") != arm_name:
+                continue
+            h = sum(r["quality"]["task_success"]["overall"]["hits"]
+                    for r in a.get("rungs", []) if r.get("ran"))
+            n = sum(r["quality"]["task_success"]["overall"]["n"]
+                    for r in a.get("rungs", []) if r.get("ran"))
+            tps = [r["cost"]["decode_tok_per_s"] for r in a.get("rungs", []) if r.get("ran")]
+            return (h / n if n else None), (sorted(tps)[len(tps)//2] if tps else None)
+        return None, None
+
+    same = [p for p in peers
+            if p.get("workload", {}).get("sha256") == wl
+            and p.get("workload", {}).get("model", {}).get("sha256") == mh
+            and p.get("run_id") != doc.get("run_id")]
+    if not same:
+        return ("You are the first submission for this model and workload. "
+                "Later runs will compare against yours.")
+
+    lines = [f"Compared with {len(same)} other submission(s) of the same model and "
+             f"workload:", ""]
+    for arm in doc.get("arms", []):
+        mine_q, mine_s = pooled(doc, arm["name"])
+        others = [pooled(p, arm["name"]) for p in same]
+        oq = sorted(q for q, _ in others if q is not None)
+        os_ = sorted(s for _, s in others if s is not None)
+        if mine_q is None or not oq:
+            continue
+        faster = sum(1 for s in os_ if mine_s and s < mine_s)
+        lines.append(
+            f"  {arm['name']:<10} quality {mine_q:.3f}  vs peer median "
+            f"{oq[len(oq)//2]:.3f}"
+            + (f"   speed {mine_s:.1f} tok/s, faster than {faster}/{len(os_)}"
+               if mine_s and os_ else ""))
+    return "\n".join(lines)
 
 
 def submit(result_path: str, route: str = "github", repo: str = DEFAULT_REPO,

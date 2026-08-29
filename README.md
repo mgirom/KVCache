@@ -142,9 +142,14 @@ basis. Every refusal prints the measurement that justifies it.
 ./auditor/reproduce.sh audit MODEL     # the full ladder
 ```
 
-Nothing is uploaded unless you ask, per run, and the tool prints the exact bytes first.
+When a run finishes it **asks** whether to share the result, so you can see how your
+machine compares with others running the same model and settings. You can say yes,
+always, not this time, or never. A non-interactive session always declines — silence is
+not agreement — and the first upload from a machine prints the entire payload before
+sending anything.
+
 See [`auditor/PRIVACY.md`](auditor/PRIVACY.md) for the closed field list and how to
-delete a submission.
+delete a submission afterwards.
 
 ## Disclaimer — read before running this
 
