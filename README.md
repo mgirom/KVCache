@@ -1,4 +1,56 @@
-# KVCache — measure what your KV cache setting actually costs
+# KVCache
+
+Two things, and the second exists because the first needed proving.
+
+| | |
+|---|---|
+| **[`mscc/`](mscc/README.md)** | **A KV cache codec.** Compresses a full-depth KV cache **15× for storage and transport**, with no measurable loss of task success. Read a document once, hand the frame to another process, and it answers questions with the receiver running **zero layers** over that document. |
+| **[`auditor/`](auditor/README.md)** | **The benchmark that measures it** — and any other KV method. Reports tokens per second *and what the speed cost you*, because they come apart. Results: **https://mgirom.github.io/KVCache/** |
+
+The order matters. The codec came first; the benchmark exists because its original
+evidence was twelve items with no error bars, and that is not enough to ask anyone to
+believe something. Now both are measured the same way.
+
+---
+
+## The codec: 15× smaller cache, no measurable cost
+
+```bash
+python3 -m mscc.cli kvfit    --corpus CORPUS --model MODEL -o cb.npz   # once per model
+python3 -m mscc.cli kvencode DOC --model MODEL --codebook cb.npz -o doc.kvf
+python3 -m mscc.cli kvserve  --frame doc.kvf --model MODEL --codebook cb.npz --ask "..."
+```
+
+Audited by `auditor/`, same workload and rules as everything else:
+
+| arm | B/token | vs f16 | task success |
+|---|---:|---:|---:|
+| reference — uncompressed cache | 114,688 | 1.00× | 236/240 |
+| **`cpca1024`** | **7,616** | **15.06×** | **236/240** |
+
+Identical hit counts at 15× compression, n=240. For comparison, on the same benchmark
+llama.cpp's own `q8_0` manages 1.8× and `q4_0` 3.2×.
+
+**What it is for, and what it is not.** It compresses a cache **at rest and in
+transit** — a prompt cache on disk, a document handed between agents — and decodes back
+to full precision to use. **It does not reduce live VRAM during inference**, so it is
+not a replacement for `-ctk q4_0`. It competes against storing the cache uncompressed,
+where there is no standard alternative.
+
+A frame records the conditions it was produced under and **refuses rather than
+degrades** — wrong model, wrong codebook, rate below the measured floor, unknown key
+basis — and every refusal prints the measurement that justifies it. That matters
+because a violated condition does not produce an error, it produces fluent confident
+wrong text: forced past the guard, an under-rate frame answered *"the calibration
+marker is the number 1234567890"* instead of `BRK-7742`.
+
+There is a working agent-to-agent demo in [`demo/`](demo/handoff_server.py): a document
+goes in, a frame comes out, a separate process answers questions from the frame alone,
+and a deliberately poisoned run shows the guard refusing.
+
+---
+
+## The benchmark: what your KV setting actually costs
 
 Every local-inference benchmark reports tokens per second and stops. This one reports
 tokens per second **and what the speed cost you**, because they come apart:
@@ -7,8 +59,6 @@ tokens per second **and what the speed cost you**, because they come apart:
   questions correctly.
 - A configuration **15× smaller** than its baseline ran **3.7× slower** than not
   compressing at all.
-
-Both are invisible under a tok/s-only benchmark. Both change the decision.
 
 ```bash
 ./auditor/reproduce.sh quick /path/to/model.gguf     # ~2 minutes
