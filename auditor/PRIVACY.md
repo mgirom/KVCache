@@ -64,12 +64,23 @@ Not "not currently" — the uploader strips these and the field allowlist reject
 
 ## Consent
 
-- Upload is **opt-in per run**. There is no global "always send" setting, because a
-  setting is a thing people forget they enabled.
-- On the first upload of a session the tool **prints the exact JSON it is about to
-  send** and waits. Not a summary of it — the bytes.
-- `--no-upload` skips the prompt entirely and the tool works normally.
-- `--print-payload` shows what would be sent and exits, without running anything.
+**Nothing is sent unless you pass `--upload`.** The tool is fully useful without it and
+that is the default.
+
+- The **first** `--upload` on a machine prints the entire payload — the bytes, not a
+  summary — and asks once. Later runs upload when the run finishes, without prompting.
+- The answer is recorded in `~/.config/kv-audit/consent.json` **together with the
+  version of the field list below**. Widening what is collected bumps that version and
+  the tool asks again, so a broader collection can never inherit an older yes.
+- `--forget-consent` revokes it. `--print-payload` shows what would be sent and exits
+  without running anything.
+- `--yes` skips the one-time question, for CI and unattended runs.
+
+The earlier draft of this document promised opt-in *per run* with no remembered
+setting. That was changed deliberately: requiring a click after every run is friction
+that makes people either skip submitting or reach for `--yes` permanently, and neither
+is better for them. What is preserved is the part that matters — an informed first yes,
+tied to a specific field list, revocable, and never a default.
 
 ## Deleting your data
 

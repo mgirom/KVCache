@@ -1,0 +1,62 @@
+name: validate submissions
+
+# Every submission is checked by the same validate.py that ran on the submitter's
+# machine, so a row cannot enter the record by being merged politely. The rules it
+# enforces are section 5 of auditor/SPEC-v0.1.md: a missing or failing reference arm,
+# quality reported without task success, declared bytes disagreeing with measured,
+# a stored cache with no restore_ms, an omitted context rung, or an edited row whose
+# content no longer matches its own hash.
+
+on:
+  pull_request:
+    paths: ["submissions/**"]
+  push:
+    paths: ["submissions/**"]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+
+      - name: self-tests
+        run: python3 auditor/validate.py --selftest
+
+      - name: validate every submission
+        run: |
+          set -e
+          shopt -s nullglob globstar
+          files=(submissions/**/*.json)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "no submissions to check"; exit 0
+          fi
+          fail=0
+          for f in "${files[@]}"; do
+            if python3 auditor/validate.py "$f" > /tmp/out 2>&1; then
+              echo "::notice file=$f::valid"
+            else
+              echo "::error file=$f::$(head -c 900 /tmp/out | tr '\n' ' ')"
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - name: refuse anything outside the field list
+        run: |
+          set -e
+          shopt -s nullglob globstar
+          for f in submissions/**/*.json; do
+            python3 - "$f" <<'PY'
+          import json, sys
+          sys.path.insert(0, "auditor/runner"); sys.path.insert(0, "auditor")
+          import upload as U
+          doc = json.load(open(sys.argv[1]))
+          bad = U.check_fields(U.prepare(doc))
+          if bad:
+              print(f"::error file={sys.argv[1]}::" + "; ".join(bad))
+              sys.exit(1)
+          PY
+          done

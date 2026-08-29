@@ -20,6 +20,20 @@ mkdir -p results/auditor logs
 
 banner() { echo; echo "=== $* === $(date -u +%H:%M:%S)"; }
 
+# Said here as well as in the README, because this is where someone starts a run that
+# will hold their hardware at full load for a while.
+disclaimer() {
+  cat >&2 <<'EOD'
+--------------------------------------------------------------------------------
+NO WARRANTY. This drives your GPU/CPU at sustained full load for minutes to hours,
+which is a thermal and power stress test as a side effect. You run it at your own
+risk; the authors accept no liability for hardware damage, instability or data loss.
+Results are measurements, not advice. Nothing is uploaded unless you pass --upload.
+Details: README.md and auditor/PRIVACY.md
+--------------------------------------------------------------------------------
+EOD
+}
+
 g_workload() {
   banner "workload"
   $PY auditor/workload/fetch_haystack.py || return 1
@@ -58,6 +72,7 @@ g_audit() {
   return "${PIPESTATUS[0]}"
 }
 
+disclaimer
 case "${1:-}" in
   workload) g_workload ;;
   selftest) g_selftest ;;

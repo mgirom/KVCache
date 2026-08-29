@@ -305,6 +305,18 @@ def main():
     ap.add_argument("--port", type=int, default=8099)
     ap.add_argument("--reference-floor", type=float, default=0.9)
     ap.add_argument("--skip-kv-measure", action="store_true")
+    ap.add_argument("--upload", action="store_true",
+                    help="submit the result when the run finishes. Nothing is sent "
+                         "without this. The first use on a machine prints the whole "
+                         "payload and asks once; later runs go without prompting.")
+    ap.add_argument("--repo", default="mgirom/KVCache",
+                    help="results repository for --upload")
+    ap.add_argument("--endpoint", default="",
+                    help="hosted service instead of the repository, with --route http")
+    ap.add_argument("--route", default="github", choices=("github", "http"))
+    ap.add_argument("--yes", action="store_true",
+                    help="skip the one-time confirmation. For CI and unattended runs; "
+                         "the result records that it was not interactively confirmed.")
     ap.add_argument("-o", "--out", required=True)
     a = ap.parse_args()
 
@@ -326,7 +338,7 @@ def main():
     # with no GPU at all it is meaningless.
     if cap["backend"] in ("cuda", "rocm"):
         try:
-            sys.path.insert(0, os.path.join(ROOT, "lib"))
+            sys.path.insert(0, os.path.join(ROOT, "alphabet", "scripts"))
             import gpulock
             gpulock.acquire("kv-audit")
         except Exception:                                             # noqa: BLE001
@@ -619,6 +631,23 @@ def main():
         print(f"  {arm['name']:<10} {h:>3}/{n:<3} [{lo:.2f},{hi:.2f}]  {sep}")
 
     print(f"\nwrote {a.out}")
+
+    if a.upload:
+        if errs:
+            print("\nNOT submitting: this result does not validate. A rejected row "
+                  "helps nobody.", file=sys.stderr)
+        else:
+            try:
+                import submit as S
+                res = S.submit(a.out, route=a.route, repo=a.repo,
+                               endpoint=a.endpoint, assume_yes=a.yes)
+                print("\nsubmitted: " + json.dumps(res))
+            except Exception as e:                                    # noqa: BLE001
+                # a failed upload must never invalidate a good local run
+                print(f"\nsubmission failed ({type(e).__name__}: {e}).\n"
+                      f"The result is still at {a.out} and can be submitted later "
+                      f"with:\n  python3 auditor/runner/submit.py {a.out}",
+                      file=sys.stderr)
     return 1 if errs else 0
 
 

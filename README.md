@@ -146,9 +146,35 @@ Nothing is uploaded unless you ask, per run, and the tool prints the exact bytes
 See [`auditor/PRIVACY.md`](auditor/PRIVACY.md) for the closed field list and how to
 delete a submission.
 
+## Disclaimer — read before running this
+
+**This software is provided "as is", without warranty of any kind.** You run it at your
+own risk, and the authors and contributors accept **no responsibility or liability** for
+anything that follows from running it or from using its results.
+
+Specifically, and without limiting that:
+
+- **It loads models and drives your GPU or CPU at sustained full load, for minutes to
+  hours.** That is a thermal and power stress test as a side effect. Hardware failure,
+  thermal throttling, instability, crashes, driver faults, data loss and voided
+  warranties are your risk to accept. Check your cooling and power before a long run.
+- **It downloads things** — a public-domain text, and whatever model you point it at.
+  You are responsible for what you fetch and for complying with each model's own
+  licence.
+- **It can send data off your machine, but only if you ask it to.** Nothing is uploaded
+  without `--upload`, and the first use prints the entire payload and asks. What is
+  collected is listed in full in [`auditor/PRIVACY.md`](auditor/PRIVACY.md).
+- **The results are measurements, not advice.** They come from a small number of models
+  on single machines and are not authoritative. Decisions you make from them —
+  production settings, hardware purchases, capacity planning — are yours. Verify
+  anything that matters on your own hardware and workload.
+- **Submitted results become public.** A submission includes your hardware model
+  numbers, OS and driver versions. Read the field list first.
+
 ## Licence
 
-MIT. See [`LICENSE`](LICENSE).
+MIT. See [`LICENSE`](LICENSE). The MIT text itself disclaims all warranties and
+liability; the section above says what that means in practice for a benchmark.
 
 The haystack is *Moby-Dick* (Herman Melville, 1851), public domain, fetched and
 stripped of its Project Gutenberg header by `auditor/workload/fetch_haystack.py` and
