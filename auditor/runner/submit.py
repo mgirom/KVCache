@@ -201,6 +201,34 @@ def submit_github(result_path: str, repo: str = DEFAULT_REPO, dry_run: bool = Fa
             "url": f"https://github.com/{repo}/blob/main/{dest}"}
 
 
+def _gh_identity() -> tuple[str, str]:
+    """Name and email for the commit, taken from the authenticated GitHub account.
+
+    Not from git config: a contributor may have none set, and a fresh clone inherits
+    nothing. That is not hypothetical -- the first end-to-end test of this path failed
+    at `git commit` with exit 128 on a machine with no global identity, which is the
+    situation any first-time contributor is in. Deriving it from the account also makes
+    the commit attribute to the person who submitted it.
+    """
+    try:
+        out = subprocess.run(["gh", "api", "user", "--jq", "[.login, .id] | @tsv"],
+                             capture_output=True, text=True, timeout=30).stdout.strip()
+        login, uid = out.split("\t")
+        return login, f"{uid}+{login}@users.noreply.github.com"
+    except Exception:                                                  # noqa: BLE001
+        return "kv-audit submitter", "kv-audit@users.noreply.github.com"
+
+
+def _run(cmd, cwd, what):
+    """Run a step and report what actually went wrong, not a bare CalledProcessError."""
+    p = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=300)
+    if p.returncode != 0:
+        detail = (p.stderr or p.stdout).strip().splitlines()
+        raise RuntimeError(f"{what} failed: "
+                           + (detail[-1][:200] if detail else f"exit {p.returncode}"))
+    return p
+
+
 def _pull_request(repo: str, dest: str, body: str, run_id: str):
     """Fork, branch, commit, PR -- the path for someone without write access."""
     import tempfile
@@ -212,13 +240,15 @@ def _pull_request(repo: str, dest: str, body: str, run_id: str):
         if not clone:
             raise RuntimeError("could not fork/clone the results repository")
         branch = f"submission-{run_id[:8]}"
+        name, email = _gh_identity()
         os.makedirs(os.path.join(clone, os.path.dirname(dest)), exist_ok=True)
         open(os.path.join(clone, dest), "w").write(body)
-        for c in (["git", "checkout", "-q", "-b", branch],
-                  ["git", "add", dest],
-                  ["git", "commit", "-q", "-m", f"submission {run_id[:8]}"],
-                  ["git", "push", "-q", "-u", "origin", branch]):
-            subprocess.run(c, cwd=clone, check=True, capture_output=True, timeout=300)
+        _run(["git", "checkout", "-q", "-b", branch], clone, "creating a branch")
+        _run(["git", "add", dest], clone, "staging the submission")
+        _run(["git", "-c", f"user.name={name}", "-c", f"user.email={email}",
+              "commit", "-q", "-m", f"submission {run_id[:8]}"], clone, "committing")
+        _run(["git", "push", "-q", "-u", "origin", branch], clone,
+             "pushing to your fork")
         pr = subprocess.run(
             ["gh", "pr", "create", "--repo", repo, "--title",
              f"submission {run_id[:8]}", "--body",

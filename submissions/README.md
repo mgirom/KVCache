@@ -18,6 +18,14 @@ the tool is fully usable offline. The first upload from a machine prints the ent
 payload and asks once — see [`../auditor/PRIVACY.md`](../auditor/PRIVACY.md) for the
 closed field list and how to delete a submission afterwards.
 
+## A note for maintainers
+
+GitHub requires manual approval before Actions will run on a pull request from a
+**first-time contributor**. So the first submission from a new person sits at
+"action_required" until someone clicks *Approve and run workflows* on the PR. That is
+GitHub's default and a sensible one -- it stops a stranger's PR from spending your
+Actions minutes -- but it does mean a first submission needs a human before CI speaks.
+
 ## What CI checks
 
 A pull request touching this directory is validated by the same `validate.py` the
