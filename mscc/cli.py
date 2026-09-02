@@ -247,9 +247,19 @@ def cmd_kvfit(a):
         # is what makes a code-space attention kernel affordable
         meta["per_head"] = True
         meta["bits_per_head"] = a.unit_bits // kv_heads
+        if a.quant != "cpca":
+            if not a.per_head or a.codes % 32 or a.codes <= 0:
+                raise SystemExit(f"--quant {a.quant} needs --per-head and --codes as a multiple of 32")
+            from mscc.codec import GGML_BLOCK_BYTES
+            meta["quant"], meta["codes_per_head"] = a.quant, int(a.codes)
+            # bits per head per unit at this block type -- the auditor's arm name carries
+            # unit_bits = kv_heads x bits_per_head, as it does for cpca codebooks
+            meta["bits_per_head"] = int(a.codes * GGML_BLOCK_BYTES[a.quant] * 8 // 32)
+            a.unit_bits = int(kv_heads * meta["bits_per_head"])
         books = lkv.fit_kv_codebooks_perhead(
             {k: v.float() for k, v in states.items()},
             a.unit_bits // kv_heads, int(kv_heads), int(head_dim),
+            quant=a.quant, codes=a.codes,
             progress=lambda i, n, key: (i % 14 == 0 and
                                         print(f"  fitted {i+1}/{n} units", flush=True)))
         states.clear()
@@ -503,6 +513,12 @@ def main(argv=None):
                          "worse, but it is the only basis the query-side attention "
                          "fold works in -- and it needs no architecture-specific hook, "
                          "so it runs on any HF model.")
+    kf.add_argument("--quant", default="cpca", choices=("cpca", "q8_0", "q4_0"),
+                    help="q8_0: fixed --codes components per head, each stored as ggml "
+                         "q8_0 (the llama.cpp live-path codec, emulated exactly). "
+                         "Needs --per-head.")
+    kf.add_argument("--codes", type=int, default=0,
+                    help="q8_0 only: PCA components kept per head (multiple of 32)")
     kf.add_argument("--per-head", action="store_true",
                     help="fit one basis per attention head instead of one across all "
                          "of them, at the same total rate. Compresses worse; required "

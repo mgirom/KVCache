@@ -364,9 +364,16 @@ def main():
                 ROOT, "mscc/accept/kv", f"book{'' if bits == 1024 else bits}.kvcb.npz")
             return lambda ctx: BE.MsccBackend(a.model, cbp, ctx, unit_bits=bits,
                                               sink=a.sink)
-        return lambda ctx: BE.LlamaCppBackend(a.binary, a.model, ctx, ctk=name,
-                                              ctv=name, port=a.port, ngl=a.ngl,
-                                              log_dir=log_dir)
+        # "q4_0+cpca": llama.cpp's q4_0 cache with the fitted rotation from --codebook
+        base, plus_cpca = (name.split("+", 1) + [""])[:2]
+        if plus_cpca and plus_cpca != "cpca":
+            raise SystemExit(f"unknown arm modifier {plus_cpca!r} in {name!r}")
+        if plus_cpca and not a.codebook:
+            raise SystemExit(f"arm {name!r} needs --codebook (a .cpca.gguf)")
+        return lambda ctx: BE.LlamaCppBackend(a.binary, a.model, ctx, ctk=base,
+                                              ctv=base, port=a.port, ngl=a.ngl,
+                                              log_dir=log_dir,
+                                              codebook=a.codebook if plus_cpca else None)
 
     if a.backend == "llamacpp":
         model_meta = probe_model_meta(a.binary, a.model, port=a.port, log_dir=log_dir)
@@ -396,9 +403,13 @@ def main():
     if not a.skip_kv_measure:
         print("measuring KV bytes/token by memory slope", flush=True)
         for t in ["f16"] + arms:
+            # an arm name may carry "+cpca"; the server wants the base type and the
+            # codebook by environment, and the probe must measure that same configuration
+            base = t.split("+", 1)[0]
+            env = {"LLAMA_KV_CODEBOOK": os.path.abspath(a.codebook)} if t.endswith("+cpca") else None
             bpt, det = measure_kv_bytes_per_token(
-                a.binary, a.model, t, t, port=a.port, log_dir=log_dir,
-                small=prof["probe"][0], large=prof["probe"][1])
+                a.binary, a.model, base, base, port=a.port, log_dir=log_dir,
+                small=prof["probe"][0], large=prof["probe"][1], env=env)
             kv_bytes[t] = bpt
             kv_detail[t] = det
             print(f"  {t:>6}  {bpt:,.0f} B/token  (in {det.get('measured_in')})"
@@ -491,7 +502,10 @@ def main():
             impl = ("mscc kv_exact (uncompressed handover)" if fam == "none"
                     else f"mscc {name} {os.path.basename(a.codebook)}")
         else:
-            fam, impl = ("none" if name == "f16" else name), f"llama.cpp -ctk {name} -ctv {name}"
+            base = name.split("+", 1)[0]
+            fam, impl = ("none" if name == "f16" else name), f"llama.cpp -ctk {base} -ctv {base}"
+            if name.endswith("+cpca"):
+                impl += f" LLAMA_KV_CODEBOOK={os.path.basename(a.codebook)}"
         return {"name": name, "method": {"family": fam, "impl": impl}, "rungs": rungs}
 
     # --- the reference arm decides which tiers this MODEL can be audited on.

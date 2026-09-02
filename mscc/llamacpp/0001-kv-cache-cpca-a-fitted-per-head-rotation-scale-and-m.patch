@@ -1,0 +1,322 @@
+From 53d60edd7ada78193db2bfa3d0032f67aae0f414 Mon Sep 17 00:00:00 2001
+From: mgirom <84082110+mgirom@users.noreply.github.com>
+Date: Wed, 2 Sep 2026 20:35:00 +0100
+Subject: [PATCH 1/4] kv-cache: cpca -- a fitted per-head rotation, scale and
+ mean in place of the Hadamard
+
+When LLAMA_KV_CODEBOOK names a GGUF of per-layer, per-head matrices, the quantised
+KV cache stores keys and values in a data-fitted basis instead of the Hadamard one:
+Q and K are multiplied by matched rotations (V^T diag(s) and V^T diag(1/s)), K and V
+are centred before the write, and the attention output is un-rotated and re-centred.
+The key-side mean shifts every logit of a query equally, so softmax is unchanged;
+softmax weights sum to one, so the value mean comes back exactly. The cache shift
+un-rotates, re-applies RoPE and re-rotates with the same matrices. Cache layout,
+set_rows, flash attention and the quantisation kernels are untouched; the rate is
+q4_0's own.
+
+Prototype: selected by environment rather than a context parameter.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+---
+ src/llama-graph.cpp    | 26 ++++++++----
+ src/llama-impl.h       | 27 +++++++++++++
+ src/llama-kv-cache.cpp | 92 ++++++++++++++++++++++++++++++++++++++++--
+ src/llama-kv-cache.h   | 21 ++++++++++
+ 4 files changed, 156 insertions(+), 10 deletions(-)
+
+diff --git a/src/llama-graph.cpp b/src/llama-graph.cpp
+index 8fca8e1..e7767d0 100644
+--- a/src/llama-graph.cpp
++++ b/src/llama-graph.cpp
+@@ -2798,13 +2798,22 @@ ggml_tensor * llm_graph_context::build_attn(
+             int       il) const {
+     GGML_ASSERT(v_mla == nullptr);
+ 
+-    if (inp->self_k_rot) {
+-        q_cur = llama_mul_mat_hadamard(ctx0, q_cur, inp->self_k_rot);
+-        k_cur = llama_mul_mat_hadamard(ctx0, k_cur, inp->self_k_rot);
+-    }
++    const auto * cpca = inp->mctx->get_cpca(il);
++    if (cpca) {
++        // fitted rotation with scale and mean in place of the Hadamard; the key-side
++        // mean shifts every logit of a query by the same amount, so softmax is unchanged
++        q_cur = llama_mul_mat_perhead(ctx0, q_cur, cpca->q_rot, nullptr);
++        k_cur = llama_mul_mat_perhead(ctx0, k_cur, cpca->k_rot, cpca->k_bias);
++        v_cur = llama_mul_mat_perhead(ctx0, v_cur, cpca->v_rot, cpca->v_bias);
++    } else {
++        if (inp->self_k_rot) {
++            q_cur = llama_mul_mat_hadamard(ctx0, q_cur, inp->self_k_rot);
++            k_cur = llama_mul_mat_hadamard(ctx0, k_cur, inp->self_k_rot);
++        }
+ 
+-    if (inp->self_v_rot) {
+-        v_cur = llama_mul_mat_hadamard(ctx0, v_cur, inp->self_v_rot);
++        if (inp->self_v_rot) {
++            v_cur = llama_mul_mat_hadamard(ctx0, v_cur, inp->self_v_rot);
++        }
+     }
+ 
+     // these nodes are added to the graph together so that they are not reordered
+@@ -2834,7 +2843,10 @@ ggml_tensor * llm_graph_context::build_attn(
+     ggml_tensor * cur = build_attn_mha(q, k, v, kq_b, kq_mask, sinks, v_mla, kq_scale, il);
+     cb(cur, "kqv_out", il);
+ 
+-    if (inp->self_v_rot) {
++    if (cpca) {
++        // softmax weights sum to one, so the stored mean comes back exactly
++        cur = llama_mul_mat_perhead(ctx0, cur, cpca->v_unrot, cpca->v_mean);
++    } else if (inp->self_v_rot) {
+         cur = llama_mul_mat_hadamard(ctx0, cur, inp->self_v_rot);
+     }
+ 
+diff --git a/src/llama-impl.h b/src/llama-impl.h
+index 4988b06..d13d0dd 100644
+--- a/src/llama-impl.h
++++ b/src/llama-impl.h
+@@ -74,6 +74,33 @@ static inline ggml_tensor * llama_mul_mat_hadamard(
+     return res;
+ }
+ 
++// cpca: per-head matrix on every head of `cur`. rot is [d, d, H] (y = rot . x per head,
++// heads broadcast by division so query head h uses KV head h / groups, as K.Q does);
++// bias, if given, is [d, Hb] with Hb dividing the head count of `cur`. `cur` is
++// [d, n_head, n_tokens] or the flattened [d*n_head, n_tokens]; the result has cur's shape.
++static inline ggml_tensor * llama_mul_mat_perhead(
++        ggml_context * ctx,
++        ggml_tensor * cur,
++        ggml_tensor * rot,
++        ggml_tensor * bias) {
++    const int64_t d = rot->ne[0];
++    const int64_t n_tokens = cur->ne[ggml_n_dims(cur) - 1];
++    const int64_t nh = ggml_nelements(cur) / (d * n_tokens);
++    GGML_ASSERT(nh % rot->ne[2] == 0);
++    ggml_tensor * x = ggml_reshape_3d(ctx, ggml_cont(ctx, cur), d, nh, n_tokens);
++    x = ggml_cont(ctx, ggml_permute(ctx, x, 0, 2, 1, 3));              // [d, n_tokens, nh]
++    ggml_tensor * y = ggml_mul_mat(ctx, rot, x);                        // [d, n_tokens, nh]
++    y = ggml_cont(ctx, ggml_permute(ctx, y, 0, 2, 1, 3));              // [d, nh, n_tokens]
++    if (bias) {
++        GGML_ASSERT(nh % bias->ne[1] == 0);
++        y = ggml_add(ctx, y, bias);
++    }
++    if (ggml_n_dims(cur) == 2) {
++        return ggml_reshape_2d(ctx, y, d*nh, n_tokens);
++    }
++    return ggml_reshape_3d(ctx, y, d, nh, n_tokens);
++}
++
+ struct time_meas {
+     time_meas(int64_t & t_acc, bool disable = false);
+     ~time_meas();
+diff --git a/src/llama-kv-cache.cpp b/src/llama-kv-cache.cpp
+index ec0f5a7..1eb49eb 100644
+--- a/src/llama-kv-cache.cpp
++++ b/src/llama-kv-cache.cpp
+@@ -1,4 +1,5 @@
+ #include "llama-kv-cache.h"
++#include "gguf.h"
+ 
+ #include "llama-impl.h"
+ #include "llama-io.h"
+@@ -108,6 +109,27 @@ llama_kv_cache::llama_kv_cache(
+     std::map<ggml_backend_buffer_type_t, ggml_context_ptr, ggml_backend_buft_comparator> ctx_map;
+ 
+     // create a context for each buffer type
++    // cpca: fitted rotation from a codebook GGUF (prototype: selected by environment)
++    ggml_context * cpca_host = nullptr;
++    gguf_context * cpca_gguf = nullptr;
++    {
++        const char * cpca_path = getenv("LLAMA_KV_CODEBOOK");
++        if (cpca_path && *cpca_path) {
++            if (!(ggml_is_quantized(type_k) || ggml_is_quantized(type_v))) {
++                throw std::runtime_error("LLAMA_KV_CODEBOOK set but the KV cache is not quantised; the codebook replaces the rotation of a quantised cache");
++            }
++            gguf_init_params gp = { /*.no_alloc =*/ false, /*.ctx =*/ &cpca_host };
++            cpca_gguf = gguf_init_from_file(cpca_path, gp);
++            if (!cpca_gguf) {
++                throw std::runtime_error(std::string("failed to read cpca codebook: ") + cpca_path);
++            }
++            has_cpca = true;
++            cpca_layers.resize(hparams.n_layer());
++            LLAMA_LOG_INFO("%s: cpca codebook: %s (%d tensors) -- replacing the Hadamard rotation\n",
++                    __func__, cpca_path, (int) gguf_get_n_tensors(cpca_gguf));
++        }
++    }
++
+     auto ctx_for_buft = [&](ggml_backend_buffer_type_t buft) -> ggml_context * {
+         auto it = ctx_map.find(buft);
+         if (it == ctx_map.end()) {
+@@ -180,7 +202,7 @@ llama_kv_cache::llama_kv_cache(
+                 LLAMA_LOG_WARN("%s: layer %3d: sharing with layer %d. k = %p, v = %p\n", __func__, il, il_share,
+                         layer_share.k->data, layer_share.v->data);
+ 
+-                map_layer_ids[il] = layers.size();
++        map_layer_ids[il] = layers.size();
+ 
+                 layers.push_back(layer_share);
+                 layers.back().il = il;
+@@ -242,6 +264,20 @@ llama_kv_cache::llama_kv_cache(
+             v_stream.push_back(has_v ? ggml_view_2d(ctx, v, n_embd_v_gqa, kv_size, v->nb[1], s*v->nb[2]) : nullptr);
+         }
+ 
++        if (has_cpca) {
++            const int64_t d  = hparams.n_embd_head_k(il);
++            const int64_t hk = hparams.n_head_kv(il);
++            const int64_t hq = hparams.n_head(il);
++            GGML_ASSERT(hparams.n_embd_head_v(il) == d && "cpca: K and V head dims must match");
++            auto & c = cpca_layers[il];
++            auto mk3 = [&](const char * nm) { auto * t = ggml_new_tensor_3d(ctx, GGML_TYPE_F32, d, d, hk); ggml_format_name(t, "cpca_%s_l%d", nm, il); return t; };
++            auto mk2 = [&](const char * nm, int64_t h) { auto * t = ggml_new_tensor_2d(ctx, GGML_TYPE_F32, d, h); ggml_format_name(t, "cpca_%s_l%d", nm, il); return t; };
++            c.q_rot = mk3("q_rot");  c.k_rot = mk3("k_rot");  c.k_unrot = mk3("k_unrot");
++            c.v_rot = mk3("v_rot");  c.v_unrot = mk3("v_unrot");
++            c.k_bias = mk2("k_bias", hk); c.k_mean = mk2("k_mean", hk);
++            c.v_bias = mk2("v_bias", hk); c.v_mean = mk2("v_mean", hq);
++        }
++
+         map_layer_ids[il] = layers.size();
+ 
+         layers.push_back({ il, k, v, k_stream, v_stream, });
+@@ -292,6 +328,41 @@ llama_kv_cache::llama_kv_cache(
+         ctxs_bufs.emplace_back(std::move(ctx), buf);
+     }
+ 
++    if (has_cpca) {
++        int n_set = 0;
++        for (uint32_t il = 0; il < hparams.n_layer(); ++il) {
++            if (map_layer_ids.find(il) == map_layer_ids.end()) {
++                continue;
++            }
++            auto & c = cpca_layers[il];
++            const std::pair<const char *, ggml_tensor *> want[] = {
++                {"q_rot", c.q_rot}, {"k_rot", c.k_rot}, {"k_bias", c.k_bias}, {"k_unrot", c.k_unrot},
++                {"k_mean", c.k_mean}, {"v_rot", c.v_rot}, {"v_bias", c.v_bias}, {"v_unrot", c.v_unrot},
++                {"v_mean", c.v_mean},
++            };
++            for (const auto & [nm, dst] : want) {
++                char name[128];
++                snprintf(name, sizeof(name), "blk.%d.cpca_%s", il, nm);
++                ggml_tensor * src = ggml_get_tensor(cpca_host, name);
++                if (!src) {
++                    throw std::runtime_error(std::string("cpca codebook is missing tensor ") + name);
++                }
++                if (ggml_nelements(src) != ggml_nelements(dst) || src->ne[0] != dst->ne[0] || src->ne[1] != dst->ne[1]) {
++                    throw std::runtime_error(std::string("cpca codebook tensor has the wrong shape for this model: ") + name);
++                }
++                if (src->type != GGML_TYPE_F32) {
++                    throw std::runtime_error(std::string("cpca codebook tensor must be f32: ") + name);
++                }
++                ggml_backend_tensor_set(dst, src->data, 0, ggml_nbytes(dst));
++                ++n_set;
++            }
++        }
++        gguf_free(cpca_gguf);
++        ggml_free(cpca_host);
++        cpca_gguf = nullptr; cpca_host = nullptr;
++        LLAMA_LOG_INFO("%s: cpca: %d tensors loaded onto the cache's buffers\n", __func__, n_set);
++    }
++
+     {
+         const size_t memory_size_k = size_k_bytes();
+         const size_t memory_size_v = size_v_bytes();
+@@ -1248,6 +1319,13 @@ uint32_t llama_kv_cache::get_n_kv(const slot_info & sinfo) const {
+     return result;
+ }
+ 
++const llama_kv_cache::cpca_layer * llama_kv_cache::get_cpca(int32_t il) const {
++    if (!has_cpca || il < 0 || (size_t) il >= cpca_layers.size() || !cpca_layers[il].k_rot) {
++        return nullptr;
++    }
++    return &cpca_layers[il];
++}
++
+ ggml_tensor * llama_kv_cache::get_k(ggml_context * ctx, int32_t il, uint32_t n_kv, const slot_info & sinfo) const {
+     const int32_t ikv = map_layer_ids.at(il);
+ 
+@@ -1866,15 +1944,19 @@ ggml_tensor * llama_kv_cache::build_rope_shift(
+         // dequantize to f32 -> RoPE -> quantize back
+         tmp = ggml_cast(ctx, cur, GGML_TYPE_F32);
+ 
++        const auto * cpca = get_cpca(il);
++
+         // rotate back
+-        tmp = llama_mul_mat_hadamard(ctx, tmp, rot);
++        tmp = cpca ? llama_mul_mat_perhead(ctx, tmp, cpca->k_unrot, cpca->k_mean)
++                   : llama_mul_mat_hadamard(ctx, tmp, rot);
+ 
+         tmp = ggml_rope_ext(ctx, tmp,
+                 shift, factors, n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
+                 yarn_ext_factor, yarn_attn_factor, yarn_beta_fast, yarn_beta_slow);
+ 
+         // rotate fwd
+-        tmp = llama_mul_mat_hadamard(ctx, tmp, rot);
++        tmp = cpca ? llama_mul_mat_perhead(ctx, tmp, cpca->k_rot, cpca->k_bias)
++                   : llama_mul_mat_hadamard(ctx, tmp, rot);
+ 
+         tmp = ggml_cpy(ctx, tmp, cur);
+     } else {
+@@ -2593,6 +2675,10 @@ ggml_type llama_kv_cache_context::type_v() const {
+     return kv->type_v();
+ }
+ 
++const llama_kv_cache::cpca_layer * llama_kv_cache_context::get_cpca(int32_t il) const {
++    return kv->get_cpca(il);
++}
++
+ ggml_tensor * llama_kv_cache_context::get_k(ggml_context * ctx, int32_t il) const {
+     return kv->get_k(ctx, il, n_kv, sinfos[i_cur]);
+ }
+diff --git a/src/llama-kv-cache.h b/src/llama-kv-cache.h
+index 6cb6dbd..fa2b3d4 100644
+--- a/src/llama-kv-cache.h
++++ b/src/llama-kv-cache.h
+@@ -114,6 +114,23 @@ public:
+         const  layer_reuse_cb & reuse,
+         const  layer_share_cb & share);
+ 
++    // cpca: a data-fitted per-head rotation (with scale and mean) that replaces the
++    // Hadamard rotation of the quantised cache when LLAMA_KV_CODEBOOK names a GGUF.
++    // Every tensor is in the orientation ggml_mul_mat consumes: y = rot . x.
++    struct cpca_layer {
++        ggml_tensor * q_rot   = nullptr; // [d, d, n_head_kv]   V^T diag(s)
++        ggml_tensor * k_rot   = nullptr; // [d, d, n_head_kv]   V^T diag(1/s)
++        ggml_tensor * k_bias  = nullptr; // [d, n_head_kv]      -k_rot . mu
++        ggml_tensor * k_unrot = nullptr; // [d, d, n_head_kv]   diag(s) V
++        ggml_tensor * k_mean  = nullptr; // [d, n_head_kv]      mu
++        ggml_tensor * v_rot   = nullptr;
++        ggml_tensor * v_bias  = nullptr;
++        ggml_tensor * v_unrot = nullptr;
++        ggml_tensor * v_mean  = nullptr; // [d, n_head]         mu_v, pre-expanded to query heads
++    };
++
++    const cpca_layer * get_cpca(int32_t il) const;
++
+     ~llama_kv_cache() = default;
+ 
+     //
+@@ -235,6 +252,7 @@ private:
+         std::vector<ggml_tensor *> v_stream;
+     };
+ 
++
+     bool v_trans = true;  // the value tensor is transposed
+ 
+     const uint32_t n_seq_max = 1;
+@@ -248,6 +266,8 @@ private:
+ 
+     // env: LLAMA_ATTN_ROT_DISABLE
+     bool attn_rot_k = false;
++    std::vector<cpca_layer> cpca_layers;   // indexed by model layer, empty when no codebook
++    bool has_cpca = false;
+     bool attn_rot_v = false;
+ 
+     // if all layers participating in the cache have constant head size, the value is stored here
+@@ -371,6 +391,7 @@ public:
+ 
+     // get views of the current state of the cache
+     ggml_tensor * get_k(ggml_context * ctx, int32_t il) const;
++    const llama_kv_cache::cpca_layer * get_cpca(int32_t il) const;
+     ggml_tensor * get_v(ggml_context * ctx, int32_t il) const;
+ 
+     // store k_cur and v_cur in the cache based on the provided head location
+-- 
+2.43.0
+

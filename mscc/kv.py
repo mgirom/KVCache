@@ -145,6 +145,9 @@ def encode_frame(pairs, cb: KVCodebook, n_sink: int = 0):
             x = t[0].permute(1, 0, 2).reshape(n, h * d).float().contiguous()
             unit = cb.books[(l, u)]
             codes = unit.encode(x)
+            if unit.quant != "cpca":
+                raise NotImplementedError(
+                    f"{unit.quant} codebooks are for the live path; frames use cpca")
             out[f"codes:{_tag(l, u)}"] = pack_codes(codes, unit.b)
             out[f"widths:{_tag(l, u)}"] = np.asarray(unit.b, dtype=np.int32)
             if n_sink:

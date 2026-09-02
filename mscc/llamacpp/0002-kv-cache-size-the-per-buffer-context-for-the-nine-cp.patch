@@ -1,0 +1,27 @@
+From 493d610e4dc610e303c18788cf83f50143d4fcb2 Mon Sep 17 00:00:00 2001
+From: mgirom <84082110+mgirom@users.noreply.github.com>
+Date: Wed, 2 Sep 2026 20:36:46 +0100
+Subject: [PATCH 2/4] kv-cache: size the per-buffer context for the nine cpca
+ tensors per layer
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+---
+ src/llama-kv-cache.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/llama-kv-cache.cpp b/src/llama-kv-cache.cpp
+index 1eb49eb..e0e2e51 100644
+--- a/src/llama-kv-cache.cpp
++++ b/src/llama-kv-cache.cpp
+@@ -134,7 +134,7 @@ llama_kv_cache::llama_kv_cache(
+         auto it = ctx_map.find(buft);
+         if (it == ctx_map.end()) {
+             ggml_init_params params = {
+-                /*.mem_size   =*/ size_t(2u*(1 + n_stream)*n_layer*ggml_tensor_overhead()),
++                /*.mem_size   =*/ (size_t(2u*(1 + n_stream)*n_layer*ggml_tensor_overhead())) + (has_cpca ? size_t(9)*size_t(hparams.n_layer())*ggml_tensor_overhead() : size_t(0)),
+                 /*.mem_buffer =*/ NULL,
+                 /*.no_alloc   =*/ true,
+             };
+-- 
+2.43.0
+

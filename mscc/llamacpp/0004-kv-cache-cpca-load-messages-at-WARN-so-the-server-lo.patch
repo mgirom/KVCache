@@ -1,0 +1,45 @@
+From a92f539019be654a3e2a1846e9be9008debfa874 Mon Sep 17 00:00:00 2001
+From: mgirom <84082110+mgirom@users.noreply.github.com>
+Date: Wed, 2 Sep 2026 20:46:59 +0100
+Subject: [PATCH 4/4] kv-cache: cpca load messages at WARN so the server log
+ records what ran
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+---
+ src/llama-kv-cache.cpp | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/src/llama-kv-cache.cpp b/src/llama-kv-cache.cpp
+index eb7fcfe..5f07712 100644
+--- a/src/llama-kv-cache.cpp
++++ b/src/llama-kv-cache.cpp
+@@ -125,7 +125,7 @@ llama_kv_cache::llama_kv_cache(
+             }
+             has_cpca = true;
+             cpca_layers.resize(hparams.n_layer());
+-            LLAMA_LOG_INFO("%s: cpca codebook: %s (%d tensors) -- replacing the Hadamard rotation\n",
++            LLAMA_LOG_WARN("%s: cpca codebook: %s (%d tensors) -- replacing the Hadamard rotation\n",
+                     __func__, cpca_path, (int) gguf_get_n_tensors(cpca_gguf));
+         }
+     }
+@@ -360,7 +360,7 @@ llama_kv_cache::llama_kv_cache(
+             if (!buf) {
+                 throw std::runtime_error("failed to allocate buffer for the cpca codebook");
+             }
+-            LLAMA_LOG_INFO("%s: %10s cpca codebook buffer size = %8.2f MiB\n", __func__, ggml_backend_buffer_name(buf), ggml_backend_buffer_get_size(buf) / 1024.0 / 1024.0);
++            LLAMA_LOG_WARN("%s: %10s cpca codebook buffer size = %8.2f MiB\n", __func__, ggml_backend_buffer_name(buf), ggml_backend_buffer_get_size(buf) / 1024.0 / 1024.0);
+             cpca_ctxs_bufs.emplace_back(std::move(cctx), buf);
+         }
+         cpca_ctx_map.clear();
+@@ -395,7 +395,7 @@ llama_kv_cache::llama_kv_cache(
+         gguf_free(cpca_gguf);
+         ggml_free(cpca_host);
+         cpca_gguf = nullptr; cpca_host = nullptr;
+-        LLAMA_LOG_INFO("%s: cpca: %d tensors loaded onto the cache's buffers\n", __func__, n_set);
++        LLAMA_LOG_WARN("%s: cpca: %d tensors loaded onto the cache's buffers\n", __func__, n_set);
+     }
+ 
+     {
+-- 
+2.43.0
+

@@ -64,11 +64,18 @@ class LlamaCppBackend(Backend):
     """The original path, unchanged in behaviour -- now just one implementation."""
 
     def __init__(self, binary, model, ctx, ctk="f16", ctv="f16", port=8099,
-                 ngl=None, log_dir=None):
+                 ngl=None, log_dir=None, codebook=None):
         from server import LlamaServer
         self.name = f"{ctk}" if ctk == ctv else f"{ctk}/{ctv}"
+        env = {}
+        if codebook:
+            # the cpca prototype: llama.cpp's quantised cache with the fitted rotation
+            # in place of its Hadamard, selected by environment (see LLAMACPP-CPCA-DESIGN.md)
+            self.name += "+cpca"
+            env["LLAMA_KV_CODEBOOK"] = os.path.abspath(codebook)
+        self.codebook = codebook
         self.srv = LlamaServer(binary, model, ctx, port=port, cache_type_k=ctk,
-                               cache_type_v=ctv, log_dir=log_dir, ngl=ngl)
+                               cache_type_v=ctv, log_dir=log_dir, ngl=ngl, env=env)
 
     def start(self):
         self.srv.start()

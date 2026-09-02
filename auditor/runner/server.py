@@ -108,8 +108,12 @@ class LlamaServer:
     HEADROOM = 512
 
     def __init__(self, binary, model, ctx, port=8099, ngl=None,
-                 cache_type_k="f16", cache_type_v="f16", extra=(), log_dir=None):
+                 cache_type_k="f16", cache_type_v="f16", extra=(), log_dir=None,
+                 env=None):
         self.binary, self.model, self.ctx, self.port = binary, model, ctx, port
+        # extra environment for the server process (the cpca prototype selects its
+        # codebook by LLAMA_KV_CODEBOOK); recorded so a result says what ran
+        self.env = dict(env or {})
         self.ngl, self.ctk, self.ctv = ngl, cache_type_k, cache_type_v
         self.extra = list(extra)
         self.log_dir = log_dir
@@ -139,14 +143,15 @@ class LlamaServer:
         # timings gave it away.
         self.port = free_port(self.port)
         self.base = f"http://127.0.0.1:{self.port}"
-        tag = f"{self.ctk}_{self.ctv}_c{self.ctx}"
+        tag = f"{self.ctk}_{self.ctv}{'+cpca' if self.env.get('LLAMA_KV_CODEBOOK') else ''}_c{self.ctx}"
         if self.log_dir:
             os.makedirs(self.log_dir, exist_ok=True)
             self.log_path = os.path.join(self.log_dir, f"server_{tag}.log")
             fh = open(self.log_path, "w")
         else:
             fh = subprocess.DEVNULL
-        self.proc = subprocess.Popen(self.cmd(), stdout=fh, stderr=subprocess.STDOUT)
+        penv = dict(os.environ); penv.update(self.env)
+        self.proc = subprocess.Popen(self.cmd(), stdout=fh, stderr=subprocess.STDOUT, env=penv)
         t0 = time.time()
         while time.time() - t0 < timeout:
             if self.proc.poll() is not None:
@@ -314,7 +319,7 @@ def probe_model_meta(binary, model, port=8099, log_dir=None):
 
 
 def measure_kv_bytes_per_token(binary, model, ctk, ctv, small=2048, large=16384,
-                               port=8099, settle=4.0, log_dir=None):
+                               port=8099, settle=4.0, log_dir=None, env=None):
     """Slope method, over whichever memory the cache lands in.
 
     Returns (bytes_per_token, detail) or (None, detail). `detail["measured_in"]` says
@@ -324,7 +329,7 @@ def measure_kv_bytes_per_token(binary, model, ctk, ctv, small=2048, large=16384,
     pts = {"vram": {}, "rss": {}}
     for ctx in (small, large):
         srv = LlamaServer(binary, model, ctx, port=port, cache_type_k=ctk,
-                          cache_type_v=ctv, log_dir=log_dir)
+                          cache_type_v=ctv, log_dir=log_dir, env=env)
         try:
             srv.start()
             # the cache is allocated lazily on this build, so touch it before reading
