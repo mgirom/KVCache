@@ -27,10 +27,32 @@ Attention then touches the **codes**, never a reconstructed vector. Verified aga
 reconstruct-then-attend on a real codebook: max difference **1.4e-04**, float32 noise.
 
 The V side folds the same way: `out = Σᵢ pᵢvᵢ = ((Σᵢ pᵢzᵢ)Vᵀ)·s + μ`, accumulating in
-code space and projecting once. RoPE survives because rotation is orthogonal —
-`q · RoPEᵢ(k) = RoPE₋ᵢ(q) · k` — and the frame already stores keys **pre-RoPE**, which
-is the form this needs. That choice was made for compression and happens to be the
-enabling condition.
+code space and projecting once.
+
+## CORRECTION: RoPE does not survive the fold on pre-RoPE codes
+
+An earlier version of this note claimed the opposite, on the grounds that rotation is
+orthogonal (`q · RoPEᵢ(k) = RoPE₋ᵢ(q) · k`). That identity is true and the conclusion
+drawn from it was wrong. Rotating the query by `−i` gives a **different projected query
+for every position `i`**, so the projection can no longer be computed once per step —
+it costs a `[k × 128]` matvec per position, which is the same cost as decoding. The fold
+saves nothing on pre-RoPE codes.
+
+Measured rather than argued, on a real codebook and a real query:
+
+| codes | fold error vs decode-then-attend |
+|---|---:|
+| pre-RoPE (what the note assumed) | **67.678 — wrong** |
+| post-RoPE (keys as the cache holds them) | **0.000 — exact** |
+
+**The fold requires post-RoPE codes.** That has two consequences, one bad and one
+good. Bad: post-RoPE states compress worse — RoPE smears every key channel across the
+document's rotation angles — so the live path pays a second compression penalty on top
+of the per-head one below. Good: post-RoPE capture needs no architecture-specific hook,
+so it runs on any HuggingFace model, not only ones with a `k_norm` to intercept.
+
+The claim that pre-RoPE storage "happens to be the enabling condition" is withdrawn.
+It is the disabling one.
 
 ## The obstacle, which is real
 

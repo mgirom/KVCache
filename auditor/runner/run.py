@@ -484,9 +484,15 @@ def main():
         for d in det:
             d["arm"] = name
         all_details.extend(det)
-        return {"name": name, "method": {
-            "family": "none" if name == "f16" else name,
-            "impl": f"llama.cpp -ctk {name} -ctv {name}"}, "rungs": rungs}
+        # the label must say what actually ran: an MSCC arm stamped "llama.cpp" would
+        # let a reader pool numbers the protocol says never to pool
+        if a.backend == "mscc":
+            fam = "none" if name in ("f16", "kv_exact") else "cpca"
+            impl = ("mscc kv_exact (uncompressed handover)" if fam == "none"
+                    else f"mscc {name} {os.path.basename(a.codebook)}")
+        else:
+            fam, impl = ("none" if name == "f16" else name), f"llama.cpp -ctk {name} -ctv {name}"
+        return {"name": name, "method": {"family": fam, "impl": impl}, "rungs": rungs}
 
     # --- the reference arm decides which tiers this MODEL can be audited on.
     # A tier the reference fails is measuring the model, not the optimisation: at

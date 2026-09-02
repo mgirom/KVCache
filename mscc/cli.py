@@ -180,7 +180,8 @@ def cmd_inspect(a):
 # receiver runs ZERO layers over the document instead of 14% of them, and in
 # exchange the question can attend to the document at every depth.
 
-def _kv_capture_corpus(li, lkv, tok, model, text, seqlen, max_tokens, log=print):
+def _kv_capture_corpus(li, lkv, tok, model, text, seqlen, max_tokens, log=print,
+                       postrope=False):
     """Prefill the corpus in windows; keep pre-RoPE K and V for every layer.
 
     Windowed on purpose: the codebook wants the distribution of cache states, and
@@ -197,10 +198,16 @@ def _kv_capture_corpus(li, lkv, tok, model, text, seqlen, max_tokens, log=print)
         w = ids[i:i + seqlen]
         if len(w) < 8:
             break
-        kv, kpre = lkv.capture_kv_prerope(model, w.unsqueeze(0).to(li.DEV))
+        kpre = None
+        if postrope:
+            kv = lkv.capture_kv(model, w.unsqueeze(0).to(li.DEV))
+            ksrc = [kk for kk, _ in kv]          # keys as the cache holds them
+        else:
+            kv, kpre = lkv.capture_kv_prerope(model, w.unsqueeze(0).to(li.DEV))
+            ksrc = kpre
         for l, (_, vv) in enumerate(kv):
             buf[(l, "v")].append(lkv.to_matrix(vv).half().cpu())
-            buf[(l, "k")].append(lkv.to_matrix(kpre[l]).half().cpu())
+            buf[(l, "k")].append(lkv.to_matrix(ksrc[l]).half().cpu())
         got += len(w)
         del kv, kpre
         torch.cuda.empty_cache()
@@ -221,7 +228,7 @@ def cmd_kvfit(a):
 
     text = _read_text(a.corpus)
     states, n_tok, secs = _kv_capture_corpus(li, lkv, tok, model, text,
-                                             a.seqlen, a.tokens)
+                                             a.seqlen, a.tokens, postrope=a.postrope)
     print(f"captured {n_tok} tokens x {len(states)} units in {secs:.1f}s "
           f"-- fitting on CPU", flush=True)
     del model
@@ -229,7 +236,8 @@ def cmd_kvfit(a):
 
     meta = dict(model_sha=mfmt.model_fingerprint(a.model),
                 model_id=os.path.basename(a.model), n_layers=n_layers,
-                kv_heads=int(kv_heads), head_dim=int(head_dim), basis="prerope",
+                kv_heads=int(kv_heads), head_dim=int(head_dim),
+                basis="postrope" if a.postrope else "prerope",
                 unit_bits=a.unit_bits, dims=a.dims,
                 corpus=os.path.basename(a.corpus),
                 corpus_sha=mcodec.corpus_digest(text)[:16],
@@ -261,7 +269,7 @@ def cmd_kvfit(a):
                       "bits_per_token": cb.bits_per_token,
                       "raw_bits_per_token": raw,
                       "compression_vs_bf16": round(raw / cb.bits_per_token, 1),
-                      "basis": "prerope", "n_states": n_tok}, indent=1))
+                      "basis": meta["basis"], "n_states": n_tok}, indent=1))
     del lk
 
 
@@ -490,6 +498,11 @@ def main(argv=None):
                          "(15.1x, full recall); 512 is the measured floor (28.4x, "
                          "10-of-12); 256 answers everything wrongly")
     kf.add_argument("--dims", type=int, default=1024)
+    kf.add_argument("--postrope", action="store_true",
+                    help="code keys as the cache holds them (rotated). Compresses "
+                         "worse, but it is the only basis the query-side attention "
+                         "fold works in -- and it needs no architecture-specific hook, "
+                         "so it runs on any HF model.")
     kf.add_argument("--per-head", action="store_true",
                     help="fit one basis per attention head instead of one across all "
                          "of them, at the same total rate. Compresses worse; required "

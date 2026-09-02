@@ -351,6 +351,30 @@ def roundtrip_kv_prerope_perhead(model, kv, kpre, books, heads, head_dim, start=
     return [(kr, v) for kr, (_, v) in zip(krot, rec)]
 
 
+def roundtrip_kv_perhead_postrope(kv, books, heads, head_dim):
+    """Per-head roundtrip on POST-RoPE keys: no re-rotation, the cache is used as is.
+
+    This is the only configuration the query-side fold works in. With pre-RoPE codes
+    the projected query depends on each position's rotation and cannot be computed
+    once per step -- measured: fold error 67.7 against 0.000 for post-RoPE codes. The
+    price is that post-RoPE states compress worse (RoPE smears every key channel across
+    the document's rotation angles), which is what the audit of this path has to pay.
+    """
+    dtype, device = kv[0][0].dtype, kv[0][0].device
+    rec = []
+    for l, (kk, vv) in enumerate(kv):
+        out = []
+        for unit, t in (("k", kk), ("v", vv)):
+            x = to_matrix(t).to(device)
+            parts = []
+            for h, xh in enumerate(head_slices(x, heads, head_dim)):
+                cb = books[(l, f"{unit}{h}")]
+                parts.append(cb.decode(cb.encode(xh), device=device))
+            out.append(from_matrix(torch.cat(parts, 1), heads, head_dim, dtype, device))
+        rec.append((out[0], out[1]))
+    return rec
+
+
 def coding_pairs(kv, kpre=None):
     """The tensors the codec actually sees: pre-RoPE keys when we have them."""
     if kpre is None:

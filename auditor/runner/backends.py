@@ -194,12 +194,21 @@ class MsccBackend(Backend):
                      add_special_tokens=False).input_ids.to(dev)
 
         t0 = time.perf_counter()
-        kv, kpre = K.capture_kv_prerope(self.model, doc)
+        postrope = bool(self.cb and self.cb.meta.get("basis") == "postrope")
+        if postrope:
+            kv, kpre = K.capture_kv(self.model, doc), None
+        else:
+            kv, kpre = K.capture_kv_prerope(self.model, doc)
         if self.unit_bits:
-            if self.cb.meta.get("per_head"):
-                q_ = K.roundtrip_kv_prerope_perhead(
-                    self.model, kv, kpre, self.cb.books,
-                    int(self.cb.meta["kv_heads"]), int(self.cb.meta["head_dim"]))
+            per_head = self.cb.meta.get("per_head")
+            hh, hd = int(self.cb.meta["kv_heads"]), int(self.cb.meta["head_dim"])
+            if postrope and per_head:
+                q_ = K.roundtrip_kv_perhead_postrope(kv, self.cb.books, hh, hd)
+            elif postrope:
+                q_ = K.roundtrip_kv(kv, self.cb.books)
+            elif per_head:
+                q_ = K.roundtrip_kv_prerope_perhead(self.model, kv, kpre,
+                                                    self.cb.books, hh, hd)
             else:
                 q_ = K.roundtrip_kv_prerope(self.model, kv, kpre, self.cb.books)
             kv = K.merge_exact(kv, q_, n_sink=self.sink)
