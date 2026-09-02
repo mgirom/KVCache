@@ -68,7 +68,10 @@ twin; its codebook was fitted from llama.cpp's own saved cache), standard profil
 | **`q4_0`, fitted basis** | **143/144** | **144/144** | **3.38×** |
 
 Here `q4_0` was already free, as the earlier audit found for 8B-class models, and the
-fitted basis keeps it free. Ternary weights and a 3.4× smaller cache, no measurable
+fitted basis keeps it free. Its price is time: in this prototype the fitted basis
+decodes 10 to 13 percent slower than the Hadamard `q4_0` on both models and prefills
+13 to 20 percent slower, the cost of a dense per-head matmul with layout copies where
+ggml's Hadamard has a fast path (numbers in the design record). Ternary weights and a 3.4× smaller cache, no measurable
 loss, on a 12 GB card: that is the combination the project set out to find, at the
 8B scale. Result files: [`results/cpca-qwen3-1.7b.json`](results/cpca-qwen3-1.7b.json),
 [`results/cpca-bonsai-8b.json`](results/cpca-bonsai-8b.json).

@@ -115,3 +115,21 @@ nothing at n=240 with variable-width codes and four dense sink tokens, neither o
 a single ggml block type provides. The cheap experiments are the other block types
 with the same codebook (q5_0 at 5.5 bits, iq4_nl at 4.5), since the rotation does not
 depend on the quantiser.
+
+## Speed, as measured by the same runs
+
+| model | arm | decode tok/s at 1k | at 4k | prefill ms at 1k | at 4k |
+|---|---|---:|---:|---:|---:|
+| Qwen3-1.7B | f16 | 100.2 | 74.1 | 236 | 1117 |
+| | q4_0 Hadamard | 87.1 | 68.9 | 282 | 1170 |
+| | q4_0 fitted | 75.4 | 61.9 | 332 | 1399 |
+| Bonsai-8B | f16 | 50.5 | 45.9 | 897 | 3571 |
+| | q4_0 Hadamard | 46.9 | 37.4 | 891 | 3691 |
+| | q4_0 fitted | 41.0 | 33.7 | 1012 | 4180 |
+
+The fitted basis costs 10 to 13 percent of decode throughput and 13 to 20 percent of
+prefill time against the Hadamard, on both models. The Hadamard multiply carries a
+fast-path hint in ggml; the fitted one is a dense per-head matmul wrapped in two
+permute-and-copy steps so that heads broadcast correctly. A fused per-head projection
+kernel, or folding the rotation into the Q/K/V projection weights where the
+architecture allows it, is where that time goes next.
