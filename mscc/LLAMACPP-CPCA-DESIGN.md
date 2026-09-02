@@ -94,7 +94,7 @@ code.
 | 3. graph + shift, check on 12 items | codebook confirmed loaded; fitted q4_0 agrees with f16 on 10/12 answers, Hadamard q4_0 on 7/12; correct: f16 9, Hadamard 7, fitted 8, PyTorch emulation 8 |
 | 4. codebook from a state file (Bonsai-8B, ternary, GGUF only) | 16k tokens captured in 14 s, fitted, exported, self-checks pass |
 | 5. standard audit, Qwen3-1.7B GGUF, n=240 | reference 136/144, 95/96 · q8_0 141/144, 95/96 (1.80×) · **q4_0 Hadamard 120/144, 82/96 (3.24×)** · **q4_0 fitted 134/144, 90/96 (3.19×)** |
-| 5b. Bonsai-8B (ternary), same arms | running |
+| 5b. Bonsai-8B (ternary, GGUF only, codebook from its state file), n=288 | reference 144/144, 143/144 · q4_0 Hadamard 143/144, 142/144 (3.48×) · q4_0 fitted 143/144, 144/144 (3.38×): q4_0 is already free at 8B and the fitted basis keeps it free |
 | 5c. q5_0 and iq4_nl, Hadamard vs fitted, same codebook | queued |
 
 The milestone-3 bar was "identical to the PyTorch path". It is not met literally and

@@ -57,6 +57,22 @@ context and from 13.5 to 5 at 4k. The 4k gap is real and small, and it is what t
 next experiments attack; the rotation does not depend on the block type, so the same
 codebook drives `q5_0` and `iq4_nl` caches too, and those runs are queued.
 
+The same measurement on the **ternary 8B** (Bonsai-8B, 2.3 GB GGUF, no HuggingFace
+twin; its codebook was fitted from llama.cpp's own saved cache), standard profile,
+288 items:
+
+| cache | ctx 1k | ctx 4k | KV smaller |
+|---|---:|---:|---:|
+| f16 reference | 144/144 | 143/144 | 1.00× |
+| `q4_0`, Hadamard basis | 143/144 | 142/144 | 3.48× |
+| **`q4_0`, fitted basis** | **143/144** | **144/144** | **3.38×** |
+
+Here `q4_0` was already free, as the earlier audit found for 8B-class models, and the
+fitted basis keeps it free. Ternary weights and a 3.4× smaller cache, no measurable
+loss, on a 12 GB card: that is the combination the project set out to find, at the
+8B scale. Result files: [`results/cpca-qwen3-1.7b.json`](results/cpca-qwen3-1.7b.json),
+[`results/cpca-bonsai-8b.json`](results/cpca-bonsai-8b.json).
+
 This is a four-patch series against llama.cpp master, in
 [`mscc/llamacpp/`](mscc/llamacpp/), touching the cache constructor, the attention
 builder and the cache shift and nothing else: no new kernel, flash attention and the
@@ -69,8 +85,7 @@ python3 mscc/capture_gguf_kv.py --gguf model.gguf -o model.kvcb.npz     # writes
 LLAMA_KV_CODEBOOK=model.cpca.gguf llama-server -m model.gguf -ctk q4_0 -ctv q4_0 -fa on
 ```
 
-The result file is [`results/cpca-qwen3-1.7b.json`](results/cpca-qwen3-1.7b.json); the
-design, the algebra and the milestone record are in
+The design, the algebra and the milestone record are in
 [`mscc/LLAMACPP-CPCA-DESIGN.md`](mscc/LLAMACPP-CPCA-DESIGN.md).
 
 ### The live path: attention over the codes, cache never decoded
