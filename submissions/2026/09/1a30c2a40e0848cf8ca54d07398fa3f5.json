@@ -810,16 +810,6 @@
    ]
   }
  ],
- "_capability": {
-  "backend": "cuda",
-  "os": "linux",
-  "arch": "x86_64",
-  "cpu_cores": 32,
-  "host_total_bytes": 33339334656,
-  "host_free_bytes": 24110063616,
-  "device_free_bytes": 12158238720,
-  "device_total_bytes": 12878610432
- },
  "_kv_measurement": {
   "f16": {
    "measured_in": "vram",
