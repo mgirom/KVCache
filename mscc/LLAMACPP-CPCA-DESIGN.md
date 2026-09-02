@@ -93,7 +93,9 @@ code.
 | 2. exporter + loader | 252 tensors, 70.5 MiB on CUDA0, all export self-checks pass |
 | 3. graph + shift, check on 12 items | codebook confirmed loaded; fitted q4_0 agrees with f16 on 10/12 answers, Hadamard q4_0 on 7/12; correct: f16 9, Hadamard 7, fitted 8, PyTorch emulation 8 |
 | 4. codebook from a state file (Bonsai-8B, ternary, GGUF only) | 16k tokens captured in 14 s, fitted, exported, self-checks pass |
-| 5. standard-profile audits | running: Qwen3-1.7B (q8_0, q4_0, q4_0+cpca) then Bonsai-8B (q4_0, q4_0+cpca) |
+| 5. standard audit, Qwen3-1.7B GGUF, n=240 | reference 136/144, 95/96 · q8_0 141/144, 95/96 (1.80×) · **q4_0 Hadamard 120/144, 82/96 (3.24×)** · **q4_0 fitted 134/144, 90/96 (3.19×)** |
+| 5b. Bonsai-8B (ternary), same arms | running |
+| 5c. q5_0 and iq4_nl, Hadamard vs fitted, same codebook | queued |
 
 The milestone-3 bar was "identical to the PyTorch path". It is not met literally and
 cannot be: the GGUF holds Q4_K_M weights and the HF twin bf16, so the two arms
@@ -105,3 +107,11 @@ Two implementation notes for whoever ports this. The cache's own ggml contexts m
 `no_alloc` (dummy buffers, filled later by the scheduler), so the codebook needs its own
 always-allocated buffers. And `ggml_n_dims()` cannot distinguish `[d, n_head, 1]` from
 `[d·n_head, 1]`, so the per-head multiply decides the layout from `ne[0]`.
+
+**Reading milestone 5.** At the same bytes, the fitted basis takes q4_0's loss from 11
+points to 1.4 at 1k context and from 13.5 to 5 at 4k. The 4k gap is real at n=96 but
+small, and it is the number to attack next: the PyTorch codec at the same rate lost
+nothing at n=240 with variable-width codes and four dense sink tokens, neither of which
+a single ggml block type provides. The cheap experiments are the other block types
+with the same codebook (q5_0 at 5.5 bits, iq4_nl at 4.5), since the rotation does not
+depend on the quantiser.

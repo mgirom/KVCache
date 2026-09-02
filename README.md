@@ -4,7 +4,7 @@ Two things, and the second exists because the first needed proving.
 
 | | |
 |---|---|
-| **[`mscc/`](mscc/README.md)** | **A KV cache codec.** Compresses a full-depth KV cache **15× for storage and transport**, with no measurable loss of task success. Read a document once, hand the frame to another process, and it answers questions with the receiver running **zero layers** over that document. And a **live path**: attention that reads the compressed codes directly, **3.9× less KV memory during generation, no measurable loss at n=240, same answers on five models** — a PyTorch prototype, not yet a kernel. |
+| **[`mscc/`](mscc/README.md)** | **A KV cache codec.** Compresses a full-depth KV cache **15× for storage and transport**, with no measurable loss of task success. Read a document once, hand the frame to another process, and it answers questions with the receiver running **zero layers** over that document. And a **live path**: in llama.cpp, a fitted basis for the quantised cache that **takes `q4_0`'s loss from 11 points to 1.4 at the same bytes** (n=240, patch series included); in PyTorch, attention over the codes themselves at 3.9× with no measurable loss. |
 | **[`auditor/`](auditor/README.md)** | **The benchmark that measures it** — and any other KV method. Reports tokens per second *and what the speed cost you*, because they come apart. Results: **https://mgirom.github.io/KVCache/** |
 
 The order matters. The codec came first; the benchmark exists because its original
@@ -36,6 +36,42 @@ compresses a cache **at rest and in transit** — a prompt cache on disk, a docu
 handed between agents — and decodes back to full precision to use. That path **does not
 reduce live VRAM during inference**. It competes against storing the cache
 uncompressed, where there is no standard alternative.
+
+### In llama.cpp: the fitted basis for the quantised cache
+
+llama.cpp already stores a quantised KV cache in a rotated basis (a Hadamard, since
+PR #21038). The codec's basis is the same kind of object, fitted to the model's own
+keys and values, with a per-channel scale and a mean. Supplied in place of the
+Hadamard, through the hooks llama.cpp already has, it changes what `-ctk q4_0` costs.
+Standard profile, one run, the same 240 items, Qwen3-1.7B GGUF:
+
+| cache | ctx 1k | ctx 4k | KV smaller |
+|---|---:|---:|---:|
+| f16 reference | 136/144 | 95/96 | 1.00× |
+| `q8_0` | 141/144 | 95/96 | 1.80× |
+| `q4_0`, Hadamard basis (llama.cpp today) | 120/144 | 82/96 | 3.24× |
+| **`q4_0`, fitted basis** | **134/144** | **90/96** | **3.19×** |
+
+At the same bytes, the fitted basis takes `q4_0`'s loss from 11 points to 1.4 at 1k
+context and from 13.5 to 5 at 4k. The 4k gap is real and small, and it is what the
+next experiments attack; the rotation does not depend on the block type, so the same
+codebook drives `q5_0` and `iq4_nl` caches too, and those runs are queued.
+
+This is a four-patch series against llama.cpp master, in
+[`mscc/llamacpp/`](mscc/llamacpp/), touching the cache constructor, the attention
+builder and the cache shift and nothing else: no new kernel, flash attention and the
+quantisation kernels untouched, selected by an environment variable in this
+prototype. A codebook for any GGUF comes from llama.cpp's own saved cache, no
+HuggingFace weights needed:
+
+```bash
+python3 mscc/capture_gguf_kv.py --gguf model.gguf -o model.kvcb.npz     # writes model.cpca.gguf beside it
+LLAMA_KV_CODEBOOK=model.cpca.gguf llama-server -m model.gguf -ctk q4_0 -ctv q4_0 -fa on
+```
+
+The result file is [`results/cpca-qwen3-1.7b.json`](results/cpca-qwen3-1.7b.json); the
+design, the algebra and the milestone record are in
+[`mscc/LLAMACPP-CPCA-DESIGN.md`](mscc/LLAMACPP-CPCA-DESIGN.md).
 
 ### The live path: attention over the codes, cache never decoded
 
