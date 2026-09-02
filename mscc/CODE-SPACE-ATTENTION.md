@@ -170,25 +170,28 @@ attention over packed codes with the cache never reconstructed. Twelve items per
 | Qwen3-4B | 12/12 | 10 / 10 / 10 | 3.96× smaller | 47 → 159 |
 | SmolLM2-1.7B | 11/12 | 8 / 7 / 7 | 3.96× smaller | 23 → 204 |
 | OLMo2-1B | 12/12 | 8 / 7 / 7 | 3.96× smaller | 18 → 113 |
-| BitNet-2B | 12/12 | 9 / 9 / 9 | 3.96× smaller | — |
+| BitNet-2B | 11/12 | 9 / 9 / 9 | 3.96× smaller | 544 → 612 |
 <!-- /codespace-table -->
 
 Three things the table shows and one it cannot. The fold is exact on real models, not
 only in the identity: where whole generated sequences differed between the decoded and
 code-space paths, the divergence was almost always after the answer, at a near-tie the
-decoded path's f16 rounding resolved differently. The single answer-level exception
-(SmolLM2, a counting item every path gets wrong) is the same mechanism landing on the
-first token: dense said 10, decoded said 3, code-space said 10. The code-space path,
-which keeps float32 scores, agreed with the dense model; the decoded path, which
-rounds its reconstructed cache to f16, did not. The memory is real: the ratio is
+decoded path's f16 rounding resolved differently. The two answer-level exceptions
+(SmolLM2 and BitNet, the same counting item, which every path gets wrong on both) are
+that mechanism landing on the first token: dense said 10 and 4, decoded said 3 and 3,
+code-space said 10 and 4. Each time the code-space path, which keeps float32 scores,
+agreed with the dense model, and the decoded path, which rounds its reconstructed cache
+to f16, did not. The memory is real: the ratio is
 bytes of resident packed tensors against the f16 cache they replace, and it is the
 same on every architecture because it is a property of the rate. The hook is
 architecture-neutral: Qwen3, Llama-family (SmolLM2), OLMo2 and BitNet needed no
 per-model code, only a per-model codebook, because post-RoPE capture reads the cache as
 the model leaves it. What the table cannot show is speed. Bit-unpacking with tensor
 ops and a Python loop over KV-head groups is 4× to 9× slower per decoded token than
-dense attention here, the factor growing with the number of KV heads (SmolLM2's 32 is
-the worst case); the question prefill is roughly at par. That is the cost of having no
+dense attention on the four ordinary models, the factor growing with the number of KV
+heads (SmolLM2's 32 is the worst case); BitNet's 1.1× is not a success but its own
+eager weight path, with the compiled kernel disabled, swamping the attention cost. The
+question prefill is roughly at par everywhere. That is the cost of having no
 kernel, and it is the next thing to build, not a reason to doubt the rest.
 
 The prototype's own self-test, `codespace_selftest.py`, runs on CPU in seconds: packing

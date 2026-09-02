@@ -1,0 +1,436 @@
+{
+ "summary": {
+  "model": "olmo2-1b",
+  "codebook": "olmo2-1b_perhead8192_post.kvcb.npz",
+  "context": 1024,
+  "n": 12,
+  "identical_BC": 12,
+  "correct": {
+   "A": 8,
+   "B": 7,
+   "C": 7
+  },
+  "ratio_mean": 3.96,
+  "prompt_format": "chat",
+  "prefill_ms_mean": {
+   "A": 166.4,
+   "B": 25.7,
+   "C": 128.9
+  },
+  "decode_ms_per_tok_mean": {
+   "A": 18.1,
+   "B": 17.2,
+   "C": 113.1
+  }
+ },
+ "rows": [
+  {
+   "id": "t1-0",
+   "tier": "t1_retrieve",
+   "dense_bytes": 138936320,
+   "code_bytes": 35127296,
+   "ratio": 3.96,
+   "tok_agree_BC": "6/6",
+   "identical_BC": true,
+   "correct": {
+    "A": true,
+    "B": true,
+    "C": true
+   },
+   "n_gen": {
+    "A": 6,
+    "B": 6,
+    "C": 6
+   },
+   "prefill_ms": {
+    "A": 40.2,
+    "B": 23.1,
+    "C": 144.4
+   },
+   "decode_ms_per_tok": {
+    "A": 18.2,
+    "B": 16.8,
+    "C": 107.7
+   },
+   "text": {
+    "A": "62-10-74",
+    "B": "62-10-74",
+    "C": "62-10-74"
+   }
+  },
+  {
+   "id": "t2-16",
+   "tier": "t2_link",
+   "dense_bytes": 144179200,
+   "code_bytes": 36438016,
+   "ratio": 3.96,
+   "tok_agree_BC": "2/2",
+   "identical_BC": true,
+   "correct": {
+    "A": true,
+    "B": false,
+    "C": false
+   },
+   "n_gen": {
+    "A": 5,
+    "B": 2,
+    "C": 2
+   },
+   "prefill_ms": {
+    "A": 175.1,
+    "B": 25.4,
+    "C": 116.7
+   },
+   "decode_ms_per_tok": {
+    "A": 17.4,
+    "B": 17.1,
+    "C": 100.5
+   },
+   "text": {
+    "A": "1,136 litres",
+    "B": "1",
+    "C": "1"
+   }
+  },
+  {
+   "id": "t3-32",
+   "tier": "t3_aggregate",
+   "dense_bytes": 142737408,
+   "code_bytes": 36077568,
+   "ratio": 3.96,
+   "tok_agree_BC": "2/2",
+   "identical_BC": true,
+   "correct": {
+    "A": false,
+    "B": false,
+    "C": false
+   },
+   "n_gen": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "prefill_ms": {
+    "A": 170.7,
+    "B": 25.9,
+    "C": 124.1
+   },
+   "decode_ms_per_tok": {
+    "A": 16.7,
+    "B": 17.1,
+    "C": 114.5
+   },
+   "text": {
+    "A": "5",
+    "B": "5",
+    "C": "5"
+   }
+  },
+  {
+   "id": "t4-48",
+   "tier": "t4_distractor",
+   "dense_bytes": 144703488,
+   "code_bytes": 36569088,
+   "ratio": 3.96,
+   "tok_agree_BC": "6/6",
+   "identical_BC": true,
+   "correct": {
+    "A": true,
+    "B": true,
+    "C": true
+   },
+   "n_gen": {
+    "A": 6,
+    "B": 6,
+    "C": 6
+   },
+   "prefill_ms": {
+    "A": 172.1,
+    "B": 25.4,
+    "C": 145.2
+   },
+   "decode_ms_per_tok": {
+    "A": 17.4,
+    "B": 17.3,
+    "C": 113.8
+   },
+   "text": {
+    "A": "51-38-94",
+    "B": "51-38-94",
+    "C": "51-38-94"
+   }
+  },
+  {
+   "id": "t1-64",
+   "tier": "t1_retrieve",
+   "dense_bytes": 150732800,
+   "code_bytes": 38076416,
+   "ratio": 3.96,
+   "tok_agree_BC": "6/6",
+   "identical_BC": true,
+   "correct": {
+    "A": true,
+    "B": true,
+    "C": true
+   },
+   "n_gen": {
+    "A": 6,
+    "B": 6,
+    "C": 6
+   },
+   "prefill_ms": {
+    "A": 179.1,
+    "B": 26.8,
+    "C": 129.1
+   },
+   "decode_ms_per_tok": {
+    "A": 17.9,
+    "B": 17.3,
+    "C": 114.1
+   },
+   "text": {
+    "A": "14-88-97",
+    "B": "14-88-97",
+    "C": "14-88-97"
+   }
+  },
+  {
+   "id": "t2-80",
+   "tier": "t2_link",
+   "dense_bytes": 143130624,
+   "code_bytes": 36175872,
+   "ratio": 3.96,
+   "tok_agree_BC": "5/5",
+   "identical_BC": true,
+   "correct": {
+    "A": true,
+    "B": true,
+    "C": true
+   },
+   "n_gen": {
+    "A": 5,
+    "B": 5,
+    "C": 5
+   },
+   "prefill_ms": {
+    "A": 176.8,
+    "B": 25.4,
+    "C": 123.9
+   },
+   "decode_ms_per_tok": {
+    "A": 18.2,
+    "B": 17.3,
+    "C": 112.8
+   },
+   "text": {
+    "A": "9,371 hours",
+    "B": "9,371 hours",
+    "C": "9,371 hours"
+   }
+  },
+  {
+   "id": "t3-96",
+   "tier": "t3_aggregate",
+   "dense_bytes": 143261696,
+   "code_bytes": 36208640,
+   "ratio": 3.96,
+   "tok_agree_BC": "17/17",
+   "identical_BC": true,
+   "correct": {
+    "A": false,
+    "B": false,
+    "C": false
+   },
+   "n_gen": {
+    "A": 2,
+    "B": 17,
+    "C": 17
+   },
+   "prefill_ms": {
+    "A": 175.3,
+    "B": 25.6,
+    "C": 127.5
+   },
+   "decode_ms_per_tok": {
+    "A": 18.6,
+    "B": 17.4,
+    "C": 116.5
+   },
+   "text": {
+    "A": "1",
+    "B": "There are 5 lines beginning 'Vessel logged:' in the document above.",
+    "C": "There are 5 lines beginning 'Vessel logged:' in the document above."
+   }
+  },
+  {
+   "id": "t4-112",
+   "tier": "t4_distractor",
+   "dense_bytes": 144310272,
+   "code_bytes": 36470784,
+   "ratio": 3.96,
+   "tok_agree_BC": "6/6",
+   "identical_BC": true,
+   "correct": {
+    "A": false,
+    "B": true,
+    "C": true
+   },
+   "n_gen": {
+    "A": 6,
+    "B": 6,
+    "C": 6
+   },
+   "prefill_ms": {
+    "A": 185.7,
+    "B": 25.9,
+    "C": 127.2
+   },
+   "decode_ms_per_tok": {
+    "A": 17.8,
+    "B": 17.4,
+    "C": 115.9
+   },
+   "text": {
+    "A": "56-33-89",
+    "B": "45-56-95",
+    "C": "45-56-95"
+   }
+  },
+  {
+   "id": "t1-128",
+   "tier": "t1_retrieve",
+   "dense_bytes": 144179200,
+   "code_bytes": 36438016,
+   "ratio": 3.96,
+   "tok_agree_BC": "6/6",
+   "identical_BC": true,
+   "correct": {
+    "A": true,
+    "B": true,
+    "C": true
+   },
+   "n_gen": {
+    "A": 6,
+    "B": 6,
+    "C": 6
+   },
+   "prefill_ms": {
+    "A": 186.1,
+    "B": 26.3,
+    "C": 126.4
+   },
+   "decode_ms_per_tok": {
+    "A": 18.4,
+    "B": 17.7,
+    "C": 112.7
+   },
+   "text": {
+    "A": "12-30-42",
+    "B": "12-30-42",
+    "C": "12-30-42"
+   }
+  },
+  {
+   "id": "t2-144",
+   "tier": "t2_link",
+   "dense_bytes": 150863872,
+   "code_bytes": 38109184,
+   "ratio": 3.96,
+   "tok_agree_BC": "5/5",
+   "identical_BC": true,
+   "correct": {
+    "A": true,
+    "B": true,
+    "C": true
+   },
+   "n_gen": {
+    "A": 5,
+    "B": 5,
+    "C": 5
+   },
+   "prefill_ms": {
+    "A": 184.3,
+    "B": 27.1,
+    "C": 128.9
+   },
+   "decode_ms_per_tok": {
+    "A": 18.9,
+    "B": 17.0,
+    "C": 117.2
+   },
+   "text": {
+    "A": "9,419 litres",
+    "B": "9,419 litres",
+    "C": "9,419 litres"
+   }
+  },
+  {
+   "id": "t3-160",
+   "tier": "t3_aggregate",
+   "dense_bytes": 141557760,
+   "code_bytes": 35782656,
+   "ratio": 3.96,
+   "tok_agree_BC": "17/17",
+   "identical_BC": true,
+   "correct": {
+    "A": false,
+    "B": false,
+    "C": false
+   },
+   "n_gen": {
+    "A": 2,
+    "B": 17,
+    "C": 17
+   },
+   "prefill_ms": {
+    "A": 176.2,
+    "B": 26.4,
+    "C": 127.3
+   },
+   "decode_ms_per_tok": {
+    "A": 18.9,
+    "B": 17.5,
+    "C": 116.3
+   },
+   "text": {
+    "A": "1",
+    "B": "There are 10 lines beginning 'Vessel logged:' in the document above.",
+    "C": "There are 10 lines beginning 'Vessel logged:' in the document above."
+   }
+  },
+  {
+   "id": "t4-176",
+   "tier": "t4_distractor",
+   "dense_bytes": 141819904,
+   "code_bytes": 35848192,
+   "ratio": 3.96,
+   "tok_agree_BC": "6/6",
+   "identical_BC": true,
+   "correct": {
+    "A": true,
+    "B": false,
+    "C": false
+   },
+   "n_gen": {
+    "A": 6,
+    "B": 6,
+    "C": 6
+   },
+   "prefill_ms": {
+    "A": 175.2,
+    "B": 25.2,
+    "C": 126.4
+   },
+   "decode_ms_per_tok": {
+    "A": 18.2,
+    "B": 17.1,
+    "C": 115.5
+   },
+   "text": {
+    "A": "98-29-39",
+    "B": "81-19-29",
+    "C": "81-19-29"
+   }
+  }
+ ]
+}

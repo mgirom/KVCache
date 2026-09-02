@@ -1,0 +1,436 @@
+{
+ "summary": {
+  "model": "smollm2-1.7b",
+  "codebook": "smollm2-1.7b_perhead8192_post.kvcb.npz",
+  "context": 1024,
+  "n": 12,
+  "identical_BC": 11,
+  "correct": {
+   "A": 8,
+   "B": 7,
+   "C": 7
+  },
+  "ratio_mean": 3.96,
+  "prompt_format": "chat",
+  "prefill_ms_mean": {
+   "A": 211.2,
+   "B": 35.2,
+   "C": 242.6
+  },
+  "decode_ms_per_tok_mean": {
+   "A": 23.0,
+   "B": 22.5,
+   "C": 204.3
+  }
+ },
+ "rows": [
+  {
+   "id": "t1-0",
+   "tier": "t1_retrieve",
+   "dense_bytes": 222167040,
+   "code_bytes": 56131584,
+   "ratio": 3.96,
+   "tok_agree_BC": "9/9",
+   "identical_BC": true,
+   "correct": {
+    "A": true,
+    "B": true,
+    "C": true
+   },
+   "n_gen": {
+    "A": 9,
+    "B": 9,
+    "C": 9
+   },
+   "prefill_ms": {
+    "A": 49.2,
+    "B": 34.8,
+    "C": 269.4
+   },
+   "decode_ms_per_tok": {
+    "A": 23.5,
+    "B": 22.3,
+    "C": 198.1
+   },
+   "text": {
+    "A": "62-10-74",
+    "B": "62-10-74",
+    "C": "62-10-74"
+   }
+  },
+  {
+   "id": "t2-16",
+   "tier": "t2_link",
+   "dense_bytes": 222756864,
+   "code_bytes": 56279040,
+   "ratio": 3.96,
+   "tok_agree_BC": "5/5",
+   "identical_BC": true,
+   "correct": {
+    "A": true,
+    "B": true,
+    "C": true
+   },
+   "n_gen": {
+    "A": 5,
+    "B": 5,
+    "C": 5
+   },
+   "prefill_ms": {
+    "A": 224.2,
+    "B": 35.2,
+    "C": 249.4
+   },
+   "decode_ms_per_tok": {
+    "A": 23.1,
+    "B": 26.1,
+    "C": 200.8
+   },
+   "text": {
+    "A": "1136",
+    "B": "1136",
+    "C": "1136"
+   }
+  },
+  {
+   "id": "t3-32",
+   "tier": "t3_aggregate",
+   "dense_bytes": 220397568,
+   "code_bytes": 55689216,
+   "ratio": 3.96,
+   "tok_agree_BC": "0/2",
+   "identical_BC": false,
+   "correct": {
+    "A": false,
+    "B": false,
+    "C": false
+   },
+   "n_gen": {
+    "A": 3,
+    "B": 2,
+    "C": 3
+   },
+   "prefill_ms": {
+    "A": 220.5,
+    "B": 34.5,
+    "C": 234.6
+   },
+   "decode_ms_per_tok": {
+    "A": 23.3,
+    "B": 22.6,
+    "C": 194.6
+   },
+   "text": {
+    "A": "10",
+    "B": "3",
+    "C": "10"
+   }
+  },
+  {
+   "id": "t4-48",
+   "tier": "t4_distractor",
+   "dense_bytes": 219021312,
+   "code_bytes": 55345152,
+   "ratio": 3.96,
+   "tok_agree_BC": "9/9",
+   "identical_BC": true,
+   "correct": {
+    "A": true,
+    "B": true,
+    "C": true
+   },
+   "n_gen": {
+    "A": 9,
+    "B": 9,
+    "C": 9
+   },
+   "prefill_ms": {
+    "A": 221.0,
+    "B": 34.8,
+    "C": 210.5
+   },
+   "decode_ms_per_tok": {
+    "A": 22.7,
+    "B": 22.4,
+    "C": 194.0
+   },
+   "text": {
+    "A": "51-38-94",
+    "B": "51-38-94",
+    "C": "51-38-94"
+   }
+  },
+  {
+   "id": "t1-64",
+   "tier": "t1_retrieve",
+   "dense_bytes": 228065280,
+   "code_bytes": 57606144,
+   "ratio": 3.96,
+   "tok_agree_BC": "9/9",
+   "identical_BC": true,
+   "correct": {
+    "A": true,
+    "B": true,
+    "C": true
+   },
+   "n_gen": {
+    "A": 9,
+    "B": 9,
+    "C": 9
+   },
+   "prefill_ms": {
+    "A": 243.5,
+    "B": 36.0,
+    "C": 257.1
+   },
+   "decode_ms_per_tok": {
+    "A": 22.8,
+    "B": 22.2,
+    "C": 203.1
+   },
+   "text": {
+    "A": "14-88-97",
+    "B": "14-88-97",
+    "C": "14-88-97"
+   }
+  },
+  {
+   "id": "t2-80",
+   "tier": "t2_link",
+   "dense_bytes": 221773824,
+   "code_bytes": 56033280,
+   "ratio": 3.96,
+   "tok_agree_BC": "6/6",
+   "identical_BC": true,
+   "correct": {
+    "A": true,
+    "B": true,
+    "C": true
+   },
+   "n_gen": {
+    "A": 6,
+    "B": 6,
+    "C": 6
+   },
+   "prefill_ms": {
+    "A": 229.2,
+    "B": 34.8,
+    "C": 246.6
+   },
+   "decode_ms_per_tok": {
+    "A": 23.3,
+    "B": 22.2,
+    "C": 227.9
+   },
+   "text": {
+    "A": "9,371",
+    "B": "9,371",
+    "C": "9,371"
+   }
+  },
+  {
+   "id": "t3-96",
+   "tier": "t3_aggregate",
+   "dense_bytes": 220790784,
+   "code_bytes": 55787520,
+   "ratio": 3.96,
+   "tok_agree_BC": "3/3",
+   "identical_BC": true,
+   "correct": {
+    "A": false,
+    "B": false,
+    "C": false
+   },
+   "n_gen": {
+    "A": 3,
+    "B": 3,
+    "C": 3
+   },
+   "prefill_ms": {
+    "A": 220.8,
+    "B": 35.7,
+    "C": 214.4
+   },
+   "decode_ms_per_tok": {
+    "A": 23.2,
+    "B": 21.8,
+    "C": 233.6
+   },
+   "text": {
+    "A": "10",
+    "B": "10",
+    "C": "10"
+   }
+  },
+  {
+   "id": "t4-112",
+   "tier": "t4_distractor",
+   "dense_bytes": 221184000,
+   "code_bytes": 55885824,
+   "ratio": 3.96,
+   "tok_agree_BC": "9/9",
+   "identical_BC": true,
+   "correct": {
+    "A": true,
+    "B": true,
+    "C": true
+   },
+   "n_gen": {
+    "A": 9,
+    "B": 9,
+    "C": 9
+   },
+   "prefill_ms": {
+    "A": 224.6,
+    "B": 35.5,
+    "C": 244.1
+   },
+   "decode_ms_per_tok": {
+    "A": 22.2,
+    "B": 22.0,
+    "C": 200.3
+   },
+   "text": {
+    "A": "45-56-95",
+    "B": "45-56-95",
+    "C": "45-56-95"
+   }
+  },
+  {
+   "id": "t1-128",
+   "tier": "t1_retrieve",
+   "dense_bytes": 222756864,
+   "code_bytes": 56279040,
+   "ratio": 3.96,
+   "tok_agree_BC": "9/9",
+   "identical_BC": true,
+   "correct": {
+    "A": true,
+    "B": true,
+    "C": true
+   },
+   "n_gen": {
+    "A": 9,
+    "B": 9,
+    "C": 9
+   },
+   "prefill_ms": {
+    "A": 223.5,
+    "B": 34.7,
+    "C": 233.1
+   },
+   "decode_ms_per_tok": {
+    "A": 23.0,
+    "B": 22.5,
+    "C": 195.4
+   },
+   "text": {
+    "A": "12-30-42",
+    "B": "12-30-42",
+    "C": "12-30-42"
+   }
+  },
+  {
+   "id": "t2-144",
+   "tier": "t2_link",
+   "dense_bytes": 226099200,
+   "code_bytes": 57114624,
+   "ratio": 3.96,
+   "tok_agree_BC": "18/18",
+   "identical_BC": true,
+   "correct": {
+    "A": false,
+    "B": false,
+    "C": false
+   },
+   "n_gen": {
+    "A": 18,
+    "B": 18,
+    "C": 18
+   },
+   "prefill_ms": {
+    "A": 227.8,
+    "B": 34.6,
+    "C": 251.4
+   },
+   "decode_ms_per_tok": {
+    "A": 23.0,
+    "B": 22.2,
+    "C": 203.0
+   },
+   "text": {
+    "A": "3.811340206185567",
+    "B": "3.811340206185567",
+    "C": "3.811340206185567"
+   }
+  },
+  {
+   "id": "t3-160",
+   "tier": "t3_aggregate",
+   "dense_bytes": 218431488,
+   "code_bytes": 55197696,
+   "ratio": 3.96,
+   "tok_agree_BC": "3/3",
+   "identical_BC": true,
+   "correct": {
+    "A": false,
+    "B": false,
+    "C": false
+   },
+   "n_gen": {
+    "A": 3,
+    "B": 3,
+    "C": 3
+   },
+   "prefill_ms": {
+    "A": 230.7,
+    "B": 35.9,
+    "C": 251.1
+   },
+   "decode_ms_per_tok": {
+    "A": 22.7,
+    "B": 21.8,
+    "C": 199.5
+   },
+   "text": {
+    "A": "10",
+    "B": "10",
+    "C": "10"
+   }
+  },
+  {
+   "id": "t4-176",
+   "tier": "t4_distractor",
+   "dense_bytes": 219217920,
+   "code_bytes": 55394304,
+   "ratio": 3.96,
+   "tok_agree_BC": "9/9",
+   "identical_BC": true,
+   "correct": {
+    "A": true,
+    "B": false,
+    "C": false
+   },
+   "n_gen": {
+    "A": 9,
+    "B": 9,
+    "C": 9
+   },
+   "prefill_ms": {
+    "A": 218.9,
+    "B": 35.4,
+    "C": 249.4
+   },
+   "decode_ms_per_tok": {
+    "A": 23.2,
+    "B": 22.0,
+    "C": 201.8
+   },
+   "text": {
+    "A": "98-29-39",
+    "B": "81-19-29",
+    "C": "81-19-29"
+   }
+  }
+ ]
+}

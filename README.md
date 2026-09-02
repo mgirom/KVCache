@@ -53,29 +53,40 @@ items in the same run, twelve items per model at 1k context:
 | Qwen3-4B | 12/12 | 10 / 10 / 10 | 3.96× smaller | 47 → 159 |
 | SmolLM2-1.7B | 11/12 | 8 / 7 / 7 | 3.96× smaller | 23 → 204 |
 | OLMo2-1B | 12/12 | 8 / 7 / 7 | 3.96× smaller | 18 → 113 |
-| BitNet-2B | 12/12 | 9 / 9 / 9 | 3.96× smaller | — |
+| BitNet-2B | 11/12 | 9 / 9 / 9 | 3.96× smaller | 544 → 612 |
 <!-- /codespace-table -->
 
-Attending over packed codes produced the **same answer as decode-then-attend on 59 of
+Attending over packed codes produced the **same answer as decode-then-attend on 58 of
 60 items**, which is what the fold's exactness predicts and what
-`python3 lib/codespace_selftest.py` proves on CPU in seconds. The one exception is a
-counting question all three paths get wrong, where the decoded path's f16 rounding
-tipped a near-tie between two wrong numbers and the code-space path sided with the
-dense model. The memory figure is read from the tensors that were actually resident,
-not computed from a formula.
+`python3 lib/codespace_selftest.py` proves on CPU in seconds. Both exceptions are the
+same counting question, one that all three paths get wrong on both models: the
+decoded path's f16 rounding of its reconstructed cache tipped a near-tie between two
+wrong numbers, and the code-space path, which keeps float32 scores, sided with the
+dense model each time. The memory figure is read from the tensors that were actually
+resident, not computed from a formula.
 
 **Two prices, both measured, neither hidden.** *Accuracy:* the live path needs per-head,
 post-RoPE codes, and those compress worse than the storage codec's — 3.9× here against
 15× at rest. At this rate the Qwen3-1.7B audit shows no loss at 1k context and an
 8-point loss at 4k on the quick profile; the standard profile is running and this
 README will carry its number. *Speed:* this is PyTorch unpacking bits with tensor ops
-and looping over KV-head groups in Python, **4× to 9× slower per decoded token** than
-dense attention — slowest on SmolLM2, which has 32 KV heads and so 32 trips round that
-loop per layer. A fused kernel is what turns the memory saving into a speed saving, and
-none exists here yet. What is established is the part that had to come first: the
+and looping over KV-head groups in Python, **4× to 9× slower per decoded token** on
+the four ordinary models — slowest on SmolLM2, which has 32 KV heads and so 32 trips
+round that loop per layer. (BitNet shows only 1.1× because, with its compiled kernel
+disabled, its own eager weight path dominates every step.) A fused kernel is what turns
+the memory saving into a speed saving, and none exists here yet. What is established is the part that had to come first: the
 model answers correctly while its cache is a quarter the size. See
 [CODE-SPACE-ATTENTION.md](mscc/CODE-SPACE-ATTENTION.md) for the derivation, the
-withdrawn claim, and the full cost table.
+withdrawn claim, and the full cost table. The result files behind the table are in
+[`results/codespace/`](results/codespace/).
+
+To reproduce on a model of your own (the live path needs its own codebook: per-head,
+post-RoPE, at 4 bits per KV dimension, so `--unit-bits` is 4 × kv_heads × head_dim):
+
+```bash
+python3 -m mscc.cli kvfit --corpus CORPUS --model MODEL --unit-bits 4096 --per-head --postrope -o live.npz
+python3 lib/codespace_test.py --model MODEL --codebook live.npz --n 12
+```
 
 A frame records the conditions it was produced under and **refuses rather than
 degrades** — wrong model, wrong codebook, rate below the measured floor, unknown key

@@ -76,7 +76,7 @@
   "name": "f16",
   "method": {
    "family": "none",
-   "impl": "llama.cpp -ctk f16 -ctv f16"
+   "impl": "mscc kv_exact (uncompressed handover)"
   },
   "rungs": [
    {
@@ -260,8 +260,8 @@
   {
    "name": "cpca1024",
    "method": {
-    "family": "cpca1024",
-    "impl": "llama.cpp -ctk cpca1024 -ctv cpca1024"
+    "family": "cpca",
+    "impl": "mscc cpca1024 perhead.kvcb.npz"
    },
    "rungs": [
     {
@@ -454,6 +454,6 @@
  },
  "_kv_measurement": {},
  "integrity": {
-  "result_hash": "a9e5762d7fc86725f92b2ee88f9208d065f4734183b44b520ec69085a88545fa"
+  "result_hash": "24463f88c23b8de054cb7e08c391c3002bc0373796aafc790f82979d4dc307c9"
  }
 }
