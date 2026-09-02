@@ -58,8 +58,9 @@ It is the disabling one.
 
 Every row is a delta against the same run's uncompressed reference on Qwen3-1.7B,
 tiers the reference itself fails excluded per (tier, context). "quick" is 36 items per
-rung and can only see gaps of roughly fifteen points or more; the standard profile
-(240 per rung) is running on the 4-bit codebook and will replace those rows.
+rung and can only see gaps of roughly fifteen points or more; the standard profile is
+240 per arm. The 4-bit codebook was run on both, and the quick profile's 8-point gap
+at 4k did not survive n=240 -- which is what the quick profile's stated power predicts.
 
 | codebook | basis | bits/dim | ctx 1k | ctx 4k | KV smaller by | profile |
 |---|---|---:|---:|---:|---:|---|
@@ -67,16 +68,18 @@ rung and can only see gaps of roughly fifteen points or more; the standard profi
 | per-head 1024 | pre-RoPE | 1 | −95 pts | −100 pts | 15.1x | standard |
 | per-head 2048 | pre-RoPE | 2 | 0.0 | 0.0 | **7.8x** | standard, n=240 |
 | per-head 2048 | **post-RoPE** | 2 | −5.6 pts | **−27.8 pts** | 7.8x | quick, n=36 |
-| per-head 4096 | **post-RoPE** | 4 | 0.0 | −8.3 pts | **3.9x** | quick, n=36 |
+| per-head 4096 | **post-RoPE** | 4 | 0.0 | −8.3 pts | 3.9x | quick, n=36 |
+| per-head 4096 | **post-RoPE** | 4 | **+1.4 pts** | **0.0** | **3.9x** | **standard, n=240 (238 vs 236)** |
 
 Read down the table and the price of going live is explicit. Storage-only, the codec
 holds task success at 15x. Make the basis per-head so the fold is affordable: 7.8x.
 Make the codes post-RoPE so the fold is exact: at the same 2 bits per dimension the
-4k rung collapses, and it takes 4 bits per dimension -- 3.9x -- to get back to
-something that might hold, with an 8-point gap at 4k that n=36 cannot resolve either
-way. Only the last row can be attended over without decoding. Whether 3.9x live is
-worth more than 15x at rest depends on what a deployment is short of: VRAM at
-generation time, or bytes on the wire and disk.
+4k rung collapses, and it takes 4 bits per dimension -- 3.9x -- to hold. At n=240 it
+does hold, with no measurable loss: 238/240 against the reference's 236/240. Only the
+last row can be attended over without decoding. Whether 3.9x live is worth more than
+15x at rest depends on what a deployment is short of: VRAM at generation time, or
+bytes on the wire and disk; the two are not in competition, since a frame stored at
+15x could be re-coded to the live basis on load.
 
 The reason post-RoPE costs so much is not mysterious. Rotation mixes each key
 channel pair by an angle that depends on position, so across a document a channel's

@@ -4,7 +4,7 @@ Two things, and the second exists because the first needed proving.
 
 | | |
 |---|---|
-| **[`mscc/`](mscc/README.md)** | **A KV cache codec.** Compresses a full-depth KV cache **15× for storage and transport**, with no measurable loss of task success. Read a document once, hand the frame to another process, and it answers questions with the receiver running **zero layers** over that document. And a **live path**: attention that reads the compressed codes directly, **3.9× less KV memory during generation with the same answers, on five models** — a PyTorch prototype, not yet a kernel. |
+| **[`mscc/`](mscc/README.md)** | **A KV cache codec.** Compresses a full-depth KV cache **15× for storage and transport**, with no measurable loss of task success. Read a document once, hand the frame to another process, and it answers questions with the receiver running **zero layers** over that document. And a **live path**: attention that reads the compressed codes directly, **3.9× less KV memory during generation, no measurable loss at n=240, same answers on five models** — a PyTorch prototype, not yet a kernel. |
 | **[`auditor/`](auditor/README.md)** | **The benchmark that measures it** — and any other KV method. Reports tokens per second *and what the speed cost you*, because they come apart. Results: **https://mgirom.github.io/KVCache/** |
 
 The order matters. The codec came first; the benchmark exists because its original
@@ -67,9 +67,9 @@ resident, not computed from a formula.
 
 **Two prices, both measured, neither hidden.** *Accuracy:* the live path needs per-head,
 post-RoPE codes, and those compress worse than the storage codec's — 3.9× here against
-15× at rest. At this rate the Qwen3-1.7B audit shows no loss at 1k context and an
-8-point loss at 4k on the quick profile; the standard profile is running and this
-README will carry its number. *Speed:* this is PyTorch unpacking bits with tensor ops
+15× at rest. At this rate the Qwen3-1.7B audit, standard profile, n=240, scores
+**238/240 against the reference's 236/240**: no measurable loss at 3.9× live. (Two bits
+per dimension, 7.8×, collapses at 4k context; the rate matters.) *Speed:* this is PyTorch unpacking bits with tensor ops
 and looping over KV-head groups in Python, **4× to 9× slower per decoded token** on
 the four ordinary models — slowest on SmolLM2, which has 32 KV heads and so 32 trips
 round that loop per layer. (BitNet shows only 1.1× because, with its compiled kernel
