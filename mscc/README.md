@@ -122,6 +122,12 @@ verify your own frames.
 
 ## Tests
 
+The live path has its own self-test, CPU only, seconds:
+
+```bash
+python3 lib/codespace_selftest.py       # packing bit-exact, folds exact, hook == dense on a tiny model
+```
+
 ```bash
 python3 -m mscc.test_codec && python3 -m mscc.test_guard && python3 -m mscc.test_kv
 ```

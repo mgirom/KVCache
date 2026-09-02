@@ -54,6 +54,40 @@ so it runs on any HuggingFace model, not only ones with a `k_norm` to intercept.
 The claim that pre-RoPE storage "happens to be the enabling condition" is withdrawn.
 It is the disabling one.
 
+## What the two requirements cost, measured
+
+Every row is a delta against the same run's uncompressed reference on Qwen3-1.7B,
+tiers the reference itself fails excluded per (tier, context). "quick" is 36 items per
+rung and can only see gaps of roughly fifteen points or more; the standard profile
+(240 per rung) is running on the 4-bit codebook and will replace those rows.
+
+| codebook | basis | bits/dim | ctx 1k | ctx 4k | KV smaller by | profile |
+|---|---|---:|---:|---:|---:|---|
+| joint 1024 | pre-RoPE | 1 | 0.0 | 0.0 | **15.1x** | standard, n=240 |
+| per-head 1024 | pre-RoPE | 1 | −95 pts | −100 pts | 15.1x | standard |
+| per-head 2048 | pre-RoPE | 2 | 0.0 | 0.0 | **7.8x** | standard, n=240 |
+| per-head 2048 | **post-RoPE** | 2 | −5.6 pts | **−27.8 pts** | 7.8x | quick, n=36 |
+| per-head 4096 | **post-RoPE** | 4 | 0.0 | −8.3 pts | **3.9x** | quick, n=36 |
+
+Read down the table and the price of going live is explicit. Storage-only, the codec
+holds task success at 15x. Make the basis per-head so the fold is affordable: 7.8x.
+Make the codes post-RoPE so the fold is exact: at the same 2 bits per dimension the
+4k rung collapses, and it takes 4 bits per dimension -- 3.9x -- to get back to
+something that might hold, with an 8-point gap at 4k that n=36 cannot resolve either
+way. Only the last row can be attended over without decoding. Whether 3.9x live is
+worth more than 15x at rest depends on what a deployment is short of: VRAM at
+generation time, or bytes on the wire and disk.
+
+The reason post-RoPE costs so much is not mysterious. Rotation mixes each key
+channel pair by an angle that depends on position, so across a document a channel's
+distribution is smeared over all angles; the per-channel standardisation and the PCA
+both see a rounder, less compressible cloud. Pre-RoPE keys keep their anisotropy,
+which is exactly what the codec exploits. A fold that worked on pre-RoPE codes would
+recover the 7.8x row for the live path; the identity in the CORRECTION above says
+why the plain version cannot, and nothing measured here says whether a cleverer one
+could.
+
+
 ## The obstacle, which is real
 
 The shipped codec fits **one basis across all 8 KV heads**, deliberately, to exploit
@@ -120,3 +154,44 @@ sits in the same place on other architectures or GQA ratios is unknown.
    VRAM against an f16 cache at long context.
 3. The per-head cliff on a second model, to see whether 7.76× is a property of the
    method or of Qwen3-1.7B.
+
+## Prototype results: it runs, it is exact, it is slower
+
+`lib/codespace.py` (`alphabet/scripts/codespace.py` in the research tree) implements
+the fold as a transformers attention function. The harness runs three paths per item
+on a real model: dense f16; decode-then-attend on the reconstructed cache; and
+attention over packed codes with the cache never reconstructed. Twelve items per model,
+1k context, 4 bits per KV dimension, chat-template prompting.
+
+<!-- codespace-table -->
+| model | same answer as decode-then-attend | correct: dense / decoded / code-space | KV memory | decode ms/token: dense → code-space |
+|---|---:|---:|---:|---:|
+| Qwen3-1.7B | 12/12 | 8 / 8 / 8 | **3.96× smaller** | 24 → 106 |
+| Qwen3-4B | 12/12 | 10 / 10 / 10 | 3.96× smaller | 47 → 159 |
+| SmolLM2-1.7B | 11/12 | 8 / 7 / 7 | 3.96× smaller | 23 → 204 |
+| OLMo2-1B | 12/12 | 8 / 7 / 7 | 3.96× smaller | 18 → 113 |
+| BitNet-2B | 12/12 | 9 / 9 / 9 | 3.96× smaller | — |
+<!-- /codespace-table -->
+
+Three things the table shows and one it cannot. The fold is exact on real models, not
+only in the identity: where whole generated sequences differed between the decoded and
+code-space paths, the divergence was almost always after the answer, at a near-tie the
+decoded path's f16 rounding resolved differently. The single answer-level exception
+(SmolLM2, a counting item every path gets wrong) is the same mechanism landing on the
+first token: dense said 10, decoded said 3, code-space said 10. The code-space path,
+which keeps float32 scores, agreed with the dense model; the decoded path, which
+rounds its reconstructed cache to f16, did not. The memory is real: the ratio is
+bytes of resident packed tensors against the f16 cache they replace, and it is the
+same on every architecture because it is a property of the rate. The hook is
+architecture-neutral: Qwen3, Llama-family (SmolLM2), OLMo2 and BitNet needed no
+per-model code, only a per-model codebook, because post-RoPE capture reads the cache as
+the model leaves it. What the table cannot show is speed. Bit-unpacking with tensor
+ops and a Python loop over KV-head groups is 4× to 9× slower per decoded token than
+dense attention here, the factor growing with the number of KV heads (SmolLM2's 32 is
+the worst case); the question prefill is roughly at par. That is the cost of having no
+kernel, and it is the next thing to build, not a reason to doubt the rest.
+
+The prototype's own self-test, `codespace_selftest.py`, runs on CPU in seconds: packing
+is bit-exact against the codec's decode, both folds equal dotting with decoded states,
+and on a tiny GQA Qwen3 the hook's logits match dense attention over the reconstructed
+cache to float32 roundoff.

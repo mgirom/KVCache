@@ -57,8 +57,14 @@ import sys
 import torch
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
-    os.path.abspath(__file__)))))
+# the repo root is wherever mscc/ lives: two levels up in the research tree, one in
+# the published package. Walk, rather than assume.
+_p = os.path.abspath(__file__)
+for _ in range(5):
+    _p = os.path.dirname(_p)
+    if os.path.isdir(os.path.join(_p, "mscc")):
+        sys.path.insert(0, _p); break
+del _p
 
 from lib_inject import DEV  # noqa: E402
 
@@ -444,7 +450,7 @@ def baseline_bits_per_token(kv, bits, group=0):
 # ------------------------------------------------------------------ generation
 
 @torch.inference_mode()
-def gen_from_cache(model, kv, q_ids, maxnew, eos=None, pos_offset=0):
+def gen_from_cache(model, kv, q_ids, maxnew, eos=None, pos_offset=0, timings=None):
     """THE PRODUCT PATH. The receiver never sees the document, runs zero layers
     over it, and generates from the handed-over cache plus its own question.
 
@@ -456,15 +462,21 @@ def gen_from_cache(model, kv, q_ids, maxnew, eos=None, pos_offset=0):
     and the one this project's acceptance test caught -- leaves the question
     overlapping the document in RoPE space while the mask still says it follows.
     """
+    import time as _t
     n_doc = kv[0][0].shape[2]
     cache = build_cache(kv)
     nq = q_ids.shape[1]
     dev = q_ids.device
     slot = torch.arange(n_doc, n_doc + nq, device=dev)
+    t0 = _t.perf_counter()
     o = model(input_ids=q_ids, past_key_values=cache, cache_position=slot,
               position_ids=(slot + pos_offset).unsqueeze(0), use_cache=True)
     past, nxt = o.past_key_values, o.logits[:, -1:].argmax(-1)
     got = [int(nxt)]
+    if timings is not None:
+        torch.cuda.synchronize() if nxt.is_cuda else None
+        timings["prefill_s"] = _t.perf_counter() - t0
+        t0 = _t.perf_counter()
     for i in range(maxnew - 1):
         if eos is not None and got[-1] == eos:
             break
@@ -475,6 +487,9 @@ def gen_from_cache(model, kv, q_ids, maxnew, eos=None, pos_offset=0):
                   use_cache=True)
         past, nxt = o.past_key_values, o.logits[:, -1:].argmax(-1)
         got.append(int(nxt))
+    if timings is not None:
+        torch.cuda.synchronize() if nxt.is_cuda else None
+        timings["decode_s"], timings["n_decode"] = _t.perf_counter() - t0, len(got) - 1
     return got
 
 
