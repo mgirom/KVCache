@@ -99,6 +99,14 @@ def gpu_process_vram_bytes(pid: int) -> int | None:
     return None
 
 
+_THINK = re.compile(r"^\s*<think>.*?</think>\s*", re.S)
+
+
+def _strip_think(text: str) -> str:
+    """Drop a leading <think>...</think> block and leading whitespace."""
+    return _THINK.sub("", text, count=1).lstrip()
+
+
 class LlamaServer:
     """Start llama-server, wait for health, talk to it, stop it cleanly."""
 
@@ -241,11 +249,29 @@ class LlamaServer:
         hit rather than the work, and they would improve monotonically through the
         run. Every timing in this benchmark is a cold prefill.
         """
-        return self._post("/completion", {
-            "prompt": prompt, "n_predict": n_predict, "temperature": 0.0,
-            "top_k": 1, "seed": 0, "cache_prompt": False, "stream": False,
-            "stop": list(self.STOPS),
-        }, timeout=timeout)
+        body = {"prompt": prompt, "n_predict": n_predict, "temperature": 0.0,
+                "top_k": 1, "seed": 0, "cache_prompt": False, "stream": False,
+                "stop": list(self.STOPS)}
+        r = self._post("/completion", body, timeout=timeout)
+        if r.get("content", "").strip() or r.get("stop_type") != "word":
+            return r
+        # The reply was cut by a stop string before any content. Some models open with
+        # a blank line or an empty <think></think> block before the answer (Qwen3.5
+        # does both), and a server-side stop on "\n\n" then returns nothing. Retry
+        # once without server stops, discard a leading think block, and apply the
+        # same stops client-side. Same rule for every arm, and recorded on the item.
+        body["stop"] = []
+        r2 = self._post("/completion", body, timeout=timeout)
+        text = _strip_think(r2.get("content", ""))
+        cut = len(text)
+        for stop in self.STOPS:
+            k = text.find(stop)
+            if k >= 0:
+                cut = min(cut, k)
+        r2["content"] = text[:cut]
+        r2["stop_type"] = "word" if cut < len(text) else r2.get("stop_type")
+        r2["retried_without_stops"] = True
+        return r2
 
     def model_meta(self) -> dict:
         """Read the model's real shape out of the loader log.
