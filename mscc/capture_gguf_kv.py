@@ -89,21 +89,53 @@ def parse_state(path, geo):
     n_tok = u32(); o += 4 * n_tok
     n_stream = u32(); assert n_stream == 1, n_stream
     n_cells = u32()
-    for _ in range(n_cells):
-        i32(); n_seq = u32(); o += 4 * n_seq                             # pos, seq ids (no ext: n_pos_per_embd == 1)
-    v_trans, n_layer = u32(), u32()
-    assert v_trans == 0, "transposed V cache: run the server with flash attention on"
     kv_layers = geo["kv_layers"]
-    assert n_layer == len(kv_layers), f"state file has {n_layer} KV layers, model geometry says {len(kv_layers)}: {kv_layers[:6]}..."
     H, d = geo["n_head_kv"], geo["head_dim"]
+    # Per cell: pos i32, n_seq_id u32, [ext: extra positions, present when the model has
+    # more than one position per embedding, e.g. multi-axis RoPE], seq_ids i32[n_seq_id].
+    # The ext size is not in the file; try candidates and keep the one under which the
+    # first K header validates (f16, row = n_head_kv * head_dim * 2).
+    meta_start = o
+    chosen = None
+    for ext in (0, 4, 8, 12, 16, 32):
+        o = meta_start
+        try:
+            for _ in range(n_cells):
+                i32(); n_seq = u32(); o += ext + 4 * n_seq
+            v_trans, n_layer = u32(), u32()
+            t, row = struct.unpack_from("<iQ", b, o)
+            if n_layer == len(kv_layers) and t == GGML_F16 and row == H * d * 2:
+                chosen = ext; break
+        except struct.error:
+            continue
+    assert chosen is not None, "could not align the cell records; unknown per-cell layout"
+    if chosen:
+        print(f"note: {chosen}-byte extra position record per cell (multi-axis positions)", flush=True)
     states = {}
-    for unit in ("k", "v"):
+    # K: one row of n_embd f16 per cell
+    for j in range(n_layer):
+        l = kv_layers[j]                                                # model layer index, as blk.{l}
+        t, row = i32(), u64()
+        assert t == GGML_F16 and row == H * d * 2, ("k", l, t, row, H, d)
+        arr = np.frombuffer(b, dtype=np.float16, count=n_cells * H * d, offset=o).reshape(n_cells, H * d); o += n_cells * row
+        states[(l, "k")] = torch.from_numpy(arr.astype(np.float32))
+    if not v_trans:
         for j in range(n_layer):
-            l = kv_layers[j]                                            # model layer index, as blk.{l}
+            l = kv_layers[j]
             t, row = i32(), u64()
-            assert t == GGML_F16 and row == H * d * 2, (unit, l, t, row, H, d)
+            assert t == GGML_F16 and row == H * d * 2, ("v", l, t, row, H, d)
             arr = np.frombuffer(b, dtype=np.float16, count=n_cells * H * d, offset=o).reshape(n_cells, H * d); o += n_cells * row
-            states[(l, unit)] = torch.from_numpy(arr.astype(np.float32))
+            states[(l, "v")] = torch.from_numpy(arr.astype(np.float32))
+    else:
+        # flash attention was off: V is stored channel-major, one run of n_cells per
+        # channel. Same numbers, transposed.
+        print("note: V cache is transposed (flash attention was off for this model)", flush=True)
+        for j in range(n_layer):
+            l = kv_layers[j]
+            t, el, n_embd = i32(), u32(), u32()
+            assert t == GGML_F16 and el == 2 and n_embd == H * d, ("v", l, t, el, n_embd, H, d)
+            arr = np.frombuffer(b, dtype=np.float16, count=n_embd * n_cells, offset=o).reshape(n_embd, n_cells); o += n_embd * n_cells * el
+            states[(l, "v")] = torch.from_numpy(np.ascontiguousarray(arr.T).astype(np.float32))
     if o != len(b):
         # hybrid models append their recurrent state after the attention cache
         print(f"note: {len(b) - o} trailing bytes after the KV cache (recurrent state?)", flush=True)
