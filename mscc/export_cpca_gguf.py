@@ -72,9 +72,9 @@ print(f"wrote {a.out}: {os.path.getsize(a.out)/1e6:.1f} MB, {n_layers} layers, {
 
 # self-check: the exported matrices reproduce the codec's own encode/decode on random data
 import torch
-b = cb.books[(14 if (14, "k0") in cb.books else 0, "k0")]
+l0 = 14 if (14, "k0") in cb.books else min(l for l, _ in cb.books)
+b = cb.books[(l0, "k0")]
 x = torch.randn(7, d); z = ((x - torch.as_tensor(b.mu)) / torch.as_tensor(b.s).reshape(-1)) @ torch.as_tensor(b.V)
-l0 = 14 if (14, "k0") in cb.books else 0
 kr = np.stack([rot(cb.books[(l0, f"k{h}")], inv=True) for h in range(H)])[0]
 kb = -(kr @ cb.books[(l0, "k0")].mu.reshape(-1).astype(np.float64))
 z2 = x.numpy() @ kr.T + kb
