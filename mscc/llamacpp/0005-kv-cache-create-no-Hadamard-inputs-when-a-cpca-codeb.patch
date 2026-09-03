@@ -1,0 +1,84 @@
+From 7acae609c1535c977d698259a8bf61899cf80e3d Mon Sep 17 00:00:00 2001
+From: mgirom <84082110+mgirom@users.noreply.github.com>
+Date: Thu, 3 Sep 2026 07:28:57 +0100
+Subject: [PATCH 5/5] kv-cache: create no Hadamard inputs when a cpca codebook
+ is loaded; guard the hybrid input setters
+
+An unread graph input is never allocated; the hybrid memory's set_input touched its
+null buffer and aborted on the 27B (Qwen3.5) model.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+---
+ src/llama-graph.cpp    | 12 ++++++------
+ src/llama-kv-cache.cpp |  6 ++++--
+ 2 files changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/src/llama-graph.cpp b/src/llama-graph.cpp
+index e7767d0..afce643 100644
+--- a/src/llama-graph.cpp
++++ b/src/llama-graph.cpp
+@@ -1089,11 +1089,11 @@ void llm_graph_input_mem_hybrid::set_input(const llama_ubatch * ubatch) {
+ 
+     mctx->get_attn()->set_input_kq_mask(inp_attn->self_kq_mask, ubatch, cparams.causal_attn);
+ 
+-    if (inp_attn->self_k_rot) {
++    if (inp_attn->self_k_rot && inp_attn->self_k_rot->buffer) {
+         mctx->get_attn()->set_input_k_rot(inp_attn->self_k_rot);
+     }
+ 
+-    if (inp_attn->self_v_rot) {
++    if (inp_attn->self_v_rot && inp_attn->self_v_rot->buffer) {
+         mctx->get_attn()->set_input_v_rot(inp_attn->self_v_rot);
+     }
+ 
+@@ -1199,19 +1199,19 @@ void llm_graph_input_mem_hybrid_iswa::set_input(const llama_ubatch * ubatch) {
+         attn_ctx->get_swa()->set_input_kq_mask(inp_attn->self_kq_mask_swa, ubatch, cparams.causal_attn);
+     }
+ 
+-    if (inp_attn->self_k_rot) {
++    if (inp_attn->self_k_rot && inp_attn->self_k_rot->buffer) {
+         attn_ctx->get_base()->set_input_k_rot(inp_attn->self_k_rot);
+     }
+ 
+-    if (inp_attn->self_v_rot) {
++    if (inp_attn->self_v_rot && inp_attn->self_v_rot->buffer) {
+         attn_ctx->get_base()->set_input_v_rot(inp_attn->self_v_rot);
+     }
+ 
+-    if (inp_attn->self_k_rot_swa) {
++    if (inp_attn->self_k_rot_swa && inp_attn->self_k_rot_swa->buffer) {
+         attn_ctx->get_swa()->set_input_k_rot(inp_attn->self_k_rot_swa);
+     }
+ 
+-    if (inp_attn->self_v_rot_swa) {
++    if (inp_attn->self_v_rot_swa && inp_attn->self_v_rot_swa->buffer) {
+         attn_ctx->get_swa()->set_input_v_rot(inp_attn->self_v_rot_swa);
+     }
+ 
+diff --git a/src/llama-kv-cache.cpp b/src/llama-kv-cache.cpp
+index 5f07712..bfe4c24 100644
+--- a/src/llama-kv-cache.cpp
++++ b/src/llama-kv-cache.cpp
+@@ -1533,7 +1533,9 @@ ggml_tensor * llama_kv_cache::build_input_v_idxs(ggml_context * ctx, const llama
+ ggml_tensor * llama_kv_cache::build_input_k_rot(ggml_context * ctx) const {
+     ggml_tensor * res = nullptr;
+ 
+-    if (attn_rot_k) {
++    // with a cpca codebook the Hadamard inputs are never read; an unread input is never
++    // allocated, and a hybrid model's input setter would then touch a null buffer
++    if (attn_rot_k && !has_cpca) {
+         int nrot = 64;
+ 
+         // TODO: investigate if using the smallest rotation matrix is beneficial also for K (similar as for V)
+@@ -1554,7 +1556,7 @@ ggml_tensor * llama_kv_cache::build_input_k_rot(ggml_context * ctx) const {
+ ggml_tensor * llama_kv_cache::build_input_v_rot(ggml_context * ctx) const {
+     ggml_tensor * res = nullptr;
+ 
+-    if (attn_rot_v) {
++    if (attn_rot_v && !has_cpca) {
+         int nrot = 64;
+         // using smaller rotation matrices for V seems beneficial
+         // ref: https://github.com/ggml-org/llama.cpp/pull/21038#issuecomment-4146397570
+-- 
+2.43.0
+
