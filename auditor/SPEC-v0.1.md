@@ -287,3 +287,12 @@ sometimes impossible. This section exists in v0.1 for that reason.
 - training or fine-tuning
 - bit-exact cross-backend reproducibility — kernels differ; that is what the tolerance
   in the manifest and the mandatory same-machine reference arm are for
+
+**Empty reply on a stop string (added 2026-09-04).** Generation stops server-side on a
+blank line or a new "Question:" marker. A model that opens its answer with a blank line
+or an empty `<think></think>` block (Qwen3.5 does both) would return nothing and score
+a miss that has nothing to do with its cache. When a reply is empty and the stop
+reason is a stop string, the runner retries that item once without server stops,
+discards a leading think block, and applies the same stops client-side. The rule is
+the same for every arm, and the item's record carries `retried_without_stops: true`
+so the retry is visible in the results file.
