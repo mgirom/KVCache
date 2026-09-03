@@ -4,7 +4,7 @@ Two things, and the second exists because the first needed proving.
 
 | | |
 |---|---|
-| **[`mscc/`](mscc/README.md)** | **A KV cache codec.** Compresses a full-depth KV cache **15× for storage and transport**, with no measurable loss of task success. Read a document once, hand the frame to another process, and it answers questions with the receiver running **zero layers** over that document. And a **live path**: in llama.cpp, a fitted basis for the quantised cache that **takes `q4_0`'s loss from 11 points to 1.4 at the same bytes** (n=240, patch series included); in PyTorch, attention over the codes themselves at 3.9× with no measurable loss. |
+| **[`mscc/`](mscc/README.md)** | **A KV cache codec.** Compresses a full-depth KV cache **15× for storage and transport**, with no measurable loss of task success. Read a document once, hand the frame to another process, and it answers questions with the receiver running **zero layers** over that document. And a **live path**: in llama.cpp, a fitted basis for the quantised cache — **`iq4_nl` at 3.6× smaller with no measurable loss (231/240 vs 231/240)** on a model where every 4-bit cache had cost 11 to 22 points (patch series included); in PyTorch, attention over the codes themselves at 3.9×. |
 | **[`auditor/`](auditor/README.md)** | **The benchmark that measures it** — and any other KV method. Reports tokens per second *and what the speed cost you*, because they come apart. Results: **https://mgirom.github.io/KVCache/** |
 
 The order matters. The codec came first; the benchmark exists because its original
@@ -50,12 +50,20 @@ Standard profile, one run, the same 240 items, Qwen3-1.7B GGUF:
 | f16 reference | 136/144 | 95/96 | 1.00× |
 | `q8_0` | 141/144 | 95/96 | 1.80× |
 | `q4_0`, Hadamard basis (llama.cpp today) | 120/144 | 82/96 | 3.24× |
-| **`q4_0`, fitted basis** | **134/144** | **90/96** | **3.19×** |
+| `q4_0`, fitted basis | 134/144 | 90/96 | 3.19× |
+| `q5_0`, Hadamard basis | 138/144 | 96/96 | 2.94× |
+| `q5_0`, fitted basis | 140/144 | 95/96 | 2.94× |
+| `iq4_nl`, Hadamard basis | 104/144 | 84/96 | 3.60× |
+| **`iq4_nl`, fitted basis** | **138/144** | **93/96** | **3.60×** |
 
-At the same bytes, the fitted basis takes `q4_0`'s loss from 11 points to 1.4 at 1k
-context and from 13.5 to 5 at 4k. The 4k gap is real and small, and it is what the
-next experiments attack; the rotation does not depend on the block type, so the same
-codebook drives `q5_0` and `iq4_nl` caches too, and those runs are queued.
+The rotation does not depend on the block type, so one codebook drives every
+quantised cache type. With `q4_0` the fitted basis takes the loss from 11 points to
+1.4 at 1k and from 13.5 to 5 at 4k. With `iq4_nl`, the non-linear 4-bit type that
+loses 22 points on this model in its Hadamard basis, the fitted basis lands on
+**231/240 against the reference's 231/240 at 3.6× smaller**: no measurable loss, on
+the model where every 4-bit cache had cost between 11 and 22 points. (Two runs, two
+references: the `q4_0` rows come from one run and the `q5_0`/`iq4_nl` rows from
+another, each against its own reference, which scored identically.)
 
 The same measurement on the **ternary 8B** (Bonsai-8B, 2.3 GB GGUF, no HuggingFace
 twin; its codebook was fitted from llama.cpp's own saved cache), standard profile,

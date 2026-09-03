@@ -95,7 +95,7 @@ code.
 | 4. codebook from a state file (Bonsai-8B, ternary, GGUF only) | 16k tokens captured in 14 s, fitted, exported, self-checks pass |
 | 5. standard audit, Qwen3-1.7B GGUF, n=240 | reference 136/144, 95/96 · q8_0 141/144, 95/96 (1.80×) · **q4_0 Hadamard 120/144, 82/96 (3.24×)** · **q4_0 fitted 134/144, 90/96 (3.19×)** |
 | 5b. Bonsai-8B (ternary, GGUF only, codebook from its state file), n=288 | reference 144/144, 143/144 · q4_0 Hadamard 143/144, 142/144 (3.48×) · q4_0 fitted 143/144, 144/144 (3.38×): q4_0 is already free at 8B and the fitted basis keeps it free |
-| 5c. q5_0 and iq4_nl, Hadamard vs fitted, same codebook | queued |
+| 5c. block types with the same codebook, Qwen3-1.7B, n=240 | q5_0 Hadamard 138/144, 96/96 · q5_0 fitted 140/144, 95/96 (2.94×) · iq4_nl Hadamard 104/144, 84/96 · **iq4_nl fitted 138/144, 93/96 (3.60×): 231/240 against the reference's 231/240** |
 
 The milestone-3 bar was "identical to the PyTorch path". It is not met literally and
 cannot be: the GGUF holds Q4_K_M weights and the HF twin bf16, so the two arms
