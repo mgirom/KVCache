@@ -97,6 +97,7 @@ code.
 | 5b. Bonsai-8B (ternary, GGUF only, codebook from its state file), n=288 | reference 144/144, 143/144 · q4_0 Hadamard 143/144, 142/144 (3.48×) · q4_0 fitted 143/144, 144/144 (3.38×): q4_0 is already free at 8B and the fitted basis keeps it free |
 | 5c. block types with the same codebook, Qwen3-1.7B, n=240 | q5_0 Hadamard 138/144, 96/96 · q5_0 fitted 140/144, 95/96 (2.94×) · iq4_nl Hadamard 104/144, 84/96 · **iq4_nl fitted 138/144, 93/96 (3.60×): 231/240 against the reference's 231/240** |
 | 5d. Bonsai-27B (ternary Qwen3.5 hybrid: attention on 16 of 64 layers, 4 KV heads × 256), codebook from its state file | running: q4_0, q4_0 fitted, iq4_nl fitted. Its `Q2_0` GGUF fails to load in this build (tensor data does not match the type's size); the `Q2_g64` file loads. |
+| 5e. Bonsai-8B, iq4_nl, n=288 | reference 144/144, 143/144 · iq4_nl Hadamard 143/144, 144/144 · iq4_nl fitted 143/144, 144/144 (3.57×): free either way at the higher rate, at the iq4_nl kernel's speed cost |
 
 The milestone-3 bar was "identical to the PyTorch path". It is not met literally and
 cannot be: the GGUF holds Q4_K_M weights and the HF twin bf16, so the two arms
