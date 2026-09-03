@@ -134,3 +134,10 @@ fast-path hint in ggml; the fitted one is a dense per-head matmul wrapped in two
 permute-and-copy steps so that heads broadcast correctly. A fused per-head projection
 kernel, or folding the rotation into the Q/K/V projection weights where the
 architecture allows it, is where that time goes next.
+
+**A speed caveat on the block types.** In this llama.cpp CUDA build only `q4_0` and
+`q8_0` caches have a fast flash-attention path. `q5_0` and `iq4_nl` fall back to a slow
+one: on the 1.7B at 4k context they prefill in 72 to 83 seconds against 1.1 for f16 and
+decode at 13 to 17 tokens per second against 74, with or without the fitted basis. The
+`iq4_nl` accuracy result stands; using it today means paying that kernel gap, which is
+llama.cpp's to close, not the codebook's.
