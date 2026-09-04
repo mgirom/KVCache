@@ -40,8 +40,9 @@ jobs:
       - name: the flag exists
         shell: bash
         run: |
-          bin=$(find llama.cpp/build -name 'llama-server*' -type f | head -1)
-          "$bin" --help 2>&1 | grep -q -- "--kv-codebook"
+          bin=$(find llama.cpp/build \( -name 'llama-server' -o -name 'llama-server.exe' \) -type f | head -1)
+          echo "binary: $bin"
+          "$bin" --help 2>&1 | tr -d '\r' | grep -q -- "--kv-codebook"
 
   validate:
     runs-on: ubuntu-latest
