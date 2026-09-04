@@ -3,7 +3,7 @@
 
   python3 tools/kvcache.py list
   python3 tools/kvcache.py pull bonsai-8b                      # codebook -> ~/.kvcache/codebooks/
-  python3 tools/kvcache.py serve bonsai-8b --model /path/to/Ternary-Bonsai-8B-Q2_0_g64.gguf
+  python3 tools/kvcache.py serve bonsai-8b --model /path/to/Ternary-Bonsai-8B-Q2_0_g64.gguf [-- any llama-server options]
   python3 tools/kvcache.py audit bonsai-8b --model /path/to/... [--profile quick]
 
 The model file comes from its publisher; the registry records the sha256 of the exact
@@ -80,7 +80,7 @@ def server_args(m, cb, a):
 
 def cmd_serve(a):
     reg = registry(); m = entry(reg, a.id); check_model(m, a.model); cb = pull(m, reg); b = server_binary()
-    extra = [x for x in a.extra if x != "--"]
+    extra = [x for x in a.extra if x != "--"]                         # unknown args go to llama-server
     cmd = [b] + server_args(m, cb, a) + ["-c", str(a.ctx), "--host", a.host, "--port", str(a.port)] + extra
     print("  " + " ".join(cmd), file=sys.stderr)
     os.execv(b, cmd)
@@ -100,8 +100,11 @@ for name, fn in (("serve", cmd_serve), ("audit", cmd_audit)):
     p = sub.add_parser(name); p.add_argument("id"); p.add_argument("--model", required=True); p.add_argument("--ctk"); p.add_argument("--ctv")
     if name == "serve":
         p.add_argument("--ctx", type=int, default=8192); p.add_argument("--host", default="127.0.0.1"); p.add_argument("--port", type=int, default=8080)
-        p.add_argument("extra", nargs=argparse.REMAINDER, help="everything after the options is passed to llama-server (e.g. -- -ngl 0)")
     else:
         p.add_argument("--arms", default="q4_0,q4_0+cpca"); p.add_argument("--profile", default="quick"); p.add_argument("--contexts", default="1024,4096"); p.add_argument("--out", default="")
     p.set_defaults(fn=fn)
-a = ap.parse_args(); a.fn(a)
+a, extra = ap.parse_known_args()
+if extra and a.cmd != "serve":
+    ap.error("unrecognized arguments: " + " ".join(extra))
+a.extra = extra                                                      # serve: passed through to llama-server (e.g. -- -ngl 0)
+a.fn(a)
