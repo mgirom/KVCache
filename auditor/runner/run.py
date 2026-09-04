@@ -209,6 +209,7 @@ def run_arm(make_backend, arm_name, contexts, items, haystack,
                                 "got": res["first"], "want": it["answer"],
                                 "took_decoy": res.get("took_decoy"),
                                 "stop_type": r.get("stop_type"),
+                                "retried_without_stops": bool(r.get("retried_without_stops", False)),
                                 "reply": reply[:200]})
                 if k % 8 == 0:
                     peak = max(peak, srv.vram_bytes() or 0)
