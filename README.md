@@ -86,13 +86,27 @@ twin; its codebook was fitted from llama.cpp's own saved cache), standard profil
 
 Here `q4_0` was already free, as the earlier audit found for 8B-class models, and the
 fitted basis keeps it free; `iq4_nl` is free too, at 3.57×, with the kernel speed cost
-noted above. Its price is time: in this prototype the fitted basis
+noted above.
+
+And the largest model this 12 GB card can hold: the **ternary 27B** (Bonsai-27B, a
+Qwen3.5 hybrid with attention on 16 of its 64 layers, 7.6 GB GGUF, codebook from its
+own saved cache), standard profile, 288 items:
+
+| cache | ctx 1k | ctx 4k | KV smaller |
+|---|---:|---:|---:|
+| f16 reference | 144/144 | 142/144 | 1.00× |
+| `q4_0`, Hadamard basis | 142/144 | 143/144 | 3.14× |
+| **`q4_0`, fitted basis** | **143/144** | **143/144** | **3.27×** |
+
+A 27B model, its cache under a third of f16, 286/288 against the reference's 286/288,
+on a consumer card. That is the combination this project set out to find. Its price is time: in this prototype the fitted basis
 decodes 10 to 13 percent slower than the Hadamard `q4_0` on both models and prefills
 13 to 20 percent slower, the cost of a dense per-head matmul with layout copies where
 ggml's Hadamard has a fast path (numbers in the design record). Ternary weights and a 3.4× smaller cache, no measurable
 loss, on a 12 GB card: that is the combination the project set out to find, at the
 8B scale. Result files: [`results/cpca-qwen3-1.7b.json`](results/cpca-qwen3-1.7b.json),
-[`results/cpca-bonsai-8b.json`](results/cpca-bonsai-8b.json).
+[`results/cpca-bonsai-8b.json`](results/cpca-bonsai-8b.json),
+[`results/cpca-bonsai-27b.json`](results/cpca-bonsai-27b.json).
 
 This is a four-patch series against llama.cpp master, in
 [`mscc/llamacpp/`](mscc/llamacpp/), touching the cache constructor, the attention

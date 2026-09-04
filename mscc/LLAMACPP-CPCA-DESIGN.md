@@ -96,7 +96,7 @@ code.
 | 5. standard audit, Qwen3-1.7B GGUF, n=240 | reference 136/144, 95/96 · q8_0 141/144, 95/96 (1.80×) · **q4_0 Hadamard 120/144, 82/96 (3.24×)** · **q4_0 fitted 134/144, 90/96 (3.19×)** |
 | 5b. Bonsai-8B (ternary, GGUF only, codebook from its state file), n=288 | reference 144/144, 143/144 · q4_0 Hadamard 143/144, 142/144 (3.48×) · q4_0 fitted 143/144, 144/144 (3.38×): q4_0 is already free at 8B and the fitted basis keeps it free |
 | 5c. block types with the same codebook, Qwen3-1.7B, n=240 | q5_0 Hadamard 138/144, 96/96 · q5_0 fitted 140/144, 95/96 (2.94×) · iq4_nl Hadamard 104/144, 84/96 · **iq4_nl fitted 138/144, 93/96 (3.60×): 231/240 against the reference's 231/240** |
-| 5d. Bonsai-27B (ternary Qwen3.5 hybrid: attention on 16 of 64 layers, 4 KV heads × 256), codebook from its state file | running: q4_0, q4_0 fitted, iq4_nl fitted. Its `Q2_0` GGUF fails to load in this build (tensor data does not match the type's size); the `Q2_g64` file loads. |
+| 5d. Bonsai-27B (ternary Qwen3.5 hybrid, 7.6 GB, attention on 16 of 64 layers, 4 KV heads × 256), codebook from its state file, n=288 | reference 144/144, 142/144 · q4_0 Hadamard 142/144, 143/144 (3.14×) · **q4_0 fitted 143/144, 143/144 (3.27×)**: no measurable loss on the largest model this 12 GB card holds. iq4_nl not run here (kernel speed). Its `Q2_0` GGUF fails to load in this build; the `Q2_g64` file loads. The model opens answers with a blank line and an empty think block; the harness's empty-reply retry (SPEC) made it scorable. |
 | 5e. Bonsai-8B, iq4_nl, n=288 | reference 144/144, 143/144 · iq4_nl Hadamard 143/144, 144/144 · iq4_nl fitted 143/144, 144/144 (3.57×): free either way at the higher rate, at the iq4_nl kernel's speed cost |
 
 The milestone-3 bar was "identical to the PyTorch path". It is not met literally and
@@ -142,3 +142,6 @@ one: on the 1.7B at 4k context they prefill in 72 to 83 seconds against 1.1 for 
 decode at 13 to 17 tokens per second against 74, with or without the fitted basis. The
 `iq4_nl` accuracy result stands; using it today means paying that kernel gap, which is
 llama.cpp's to close, not the codebook's.
+| Bonsai-27B | f16 | 17.0 | 16.9 | 3871 | 14774 |
+| Bonsai-27B | q4_0 | 16.7 | 16.0 | 3879 | 14801 |
+| Bonsai-27B | q4_0+cpca | 16.3 | 15.7 | 3956 | 15052 |
