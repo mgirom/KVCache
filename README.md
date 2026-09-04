@@ -13,6 +13,27 @@ believe something. Now both are measured the same way.
 
 ---
 
+## Use it in three commands
+
+The live path, on a model the registry has measured (Qwen3-1.7B, the ternary
+Bonsai-8B and Bonsai-27B), with the patched llama.cpp built once:
+
+```bash
+./reproduce-llamacpp.sh build                                   # llama.cpp at the pinned commit + the cpca patches
+python3 tools/kvcache.py pull bonsai-8b                         # the fitted codebook, hash-checked
+python3 tools/kvcache.py serve bonsai-8b --model Ternary-Bonsai-8B-Q2_0_g64.gguf   # q4_0 cache, fitted basis, OpenAI-compatible server
+```
+
+`python3 tools/kvcache.py audit <id> --model FILE` runs the benchmark on your own
+machine and tells you what the cache setting cost there. The model file comes from its
+publisher; the registry ([`registry/models.json`](registry/models.json)) carries the
+sha256 of the exact file every row was measured on, and the codebook refuses a model
+it was not fitted for. For a model that is not in the registry:
+`python3 mscc/capture_gguf_kv.py --gguf MODEL.gguf -o MODEL.kvcb.npz` fits one from
+llama.cpp's own saved cache. All documents are indexed in [`docs/INDEX.md`](docs/INDEX.md).
+
+---
+
 ## The codec: 15× smaller cache, no measurable cost
 
 ```bash

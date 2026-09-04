@@ -145,3 +145,15 @@ llama.cpp's to close, not the codebook's.
 | Bonsai-27B | f16 | 17.0 | 16.9 | 3871 | 14774 |
 | Bonsai-27B | q4_0 | 16.7 | 16.0 | 3879 | 14801 |
 | Bonsai-27B | q4_0+cpca | 16.3 | 15.7 | 3956 | 15052 |
+
+## Phase 1 closed out (2026-09-04)
+
+Done without a decision from anyone: `--kv-codebook` and a context parameter (the
+environment variable stays as a fallback); codebooks bound to model architecture,
+name and geometry, refused on mismatch; f16 codebooks at 37 to 48 MB, checked finite on
+load; the three codebooks published on the `codebooks` branch with a registry of
+model hashes and measured rows; `tools/kvcache.py` to pull, serve and audit; a CI
+build of the patched llama.cpp on Linux, macOS and Windows that also validates every
+filed submission; `reproduce-llamacpp.sh`; a documents index. Running: the 16k rung
+on both ternary models and the f32 row on the 1.7B. Still yours: the Pages source
+switch and PR #1.
