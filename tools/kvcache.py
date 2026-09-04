@@ -80,7 +80,8 @@ def server_args(m, cb, a):
 
 def cmd_serve(a):
     reg = registry(); m = entry(reg, a.id); check_model(m, a.model); cb = pull(m, reg); b = server_binary()
-    cmd = [b] + server_args(m, cb, a) + ["-c", str(a.ctx), "--host", a.host, "--port", str(a.port)] + a.extra
+    extra = [x for x in a.extra if x != "--"]
+    cmd = [b] + server_args(m, cb, a) + ["-c", str(a.ctx), "--host", a.host, "--port", str(a.port)] + extra
     print("  " + " ".join(cmd), file=sys.stderr)
     os.execv(b, cmd)
 
@@ -99,7 +100,7 @@ for name, fn in (("serve", cmd_serve), ("audit", cmd_audit)):
     p = sub.add_parser(name); p.add_argument("id"); p.add_argument("--model", required=True); p.add_argument("--ctk"); p.add_argument("--ctv")
     if name == "serve":
         p.add_argument("--ctx", type=int, default=8192); p.add_argument("--host", default="127.0.0.1"); p.add_argument("--port", type=int, default=8080)
-        p.add_argument("extra", nargs="*", help="passed through to llama-server")
+        p.add_argument("extra", nargs=argparse.REMAINDER, help="everything after the options is passed to llama-server (e.g. -- -ngl 0)")
     else:
         p.add_argument("--arms", default="q4_0,q4_0+cpca"); p.add_argument("--profile", default="quick"); p.add_argument("--contexts", default="1024,4096"); p.add_argument("--out", default="")
     p.set_defaults(fn=fn)
