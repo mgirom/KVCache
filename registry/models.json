@@ -1,0 +1,94 @@
+{
+ "registry_version": 1,
+ "llama_cpp_commit": "11cd988",
+ "patches": "mscc/llamacpp/",
+ "codebook_branch": "codebooks",
+ "codebook_base_url": "https://raw.githubusercontent.com/mgirom/KVCache/codebooks/",
+ "models": [
+  {
+   "id": "qwen3-1.7b",
+   "weights": "Qwen3-1.7B, Q4_K_M",
+   "model_file": "q3-1.7b-Q4_K_M.gguf",
+   "model_sha256": "4847669d2a6f8e7e8f01538fdf16c80d36e8c81796fddacde98c98b0d3246f14",
+   "model_bytes": 1282439040,
+   "arch": "qwen3",
+   "name": "Qwen3 1.7b Fp",
+   "n_layer": 28,
+   "n_head_kv": 8,
+   "head_dim": 128,
+   "codebook_file": "qwen3-1.7b_pca128q4_0.cpca.gguf",
+   "codebook_sha256": "59a011361bf2917ce48504761ea2b4fbd8bbab28156936500a4bb8ca94ef0109",
+   "codebook_bytes": 37003072,
+   "recommended": {
+    "ctk": "q4_0",
+    "ctv": "q4_0",
+    "flash_attn": "on"
+   },
+   "measured": {
+    "q4_0 fitted": "134/144, 90/96 vs 136/144, 95/96 (3.19x)",
+    "iq4_nl fitted": "138/144, 93/96 vs 136/144, 95/96 (3.60x)"
+   },
+   "results": [
+    "results/cpca-qwen3-1.7b.json",
+    "results/cpca-types-qwen3-1.7b.json"
+   ],
+   "note": "obtain the model file from its publisher; the sha256 identifies the exact file these rows were measured on"
+  },
+  {
+   "id": "bonsai-8b",
+   "weights": "Bonsai-8B, ternary",
+   "model_file": "Ternary-Bonsai-8B-Q2_0_g64.gguf",
+   "model_sha256": "e17b298d84ee78797916ae5c2ecc8211469cc65cccfe3080cd9a9bb503fbc55e",
+   "model_bytes": 2310125920,
+   "arch": "qwen3",
+   "name": "",
+   "n_layer": 36,
+   "n_head_kv": 8,
+   "head_dim": 128,
+   "codebook_file": "bonsai-8b_pca128q4_0.cpca.gguf",
+   "codebook_sha256": "e48449dfb27e40f1216828c3e8de5da4a3e07c7a1ee2a797fd03357cebfba498",
+   "codebook_bytes": 47722816,
+   "recommended": {
+    "ctk": "q4_0",
+    "ctv": "q4_0",
+    "flash_attn": "on"
+   },
+   "measured": {
+    "q4_0 fitted": "143/144, 144/144 vs 144/144, 143/144 (3.38x)",
+    "iq4_nl fitted": "143/144, 144/144 (3.57x)"
+   },
+   "results": [
+    "results/cpca-bonsai-8b.json",
+    "results/cpca-iq4-bonsai-8b.json"
+   ],
+   "note": "obtain the model file from its publisher; the sha256 identifies the exact file these rows were measured on"
+  },
+  {
+   "id": "bonsai-27b",
+   "weights": "Bonsai-27B, ternary Qwen3.5 hybrid",
+   "model_file": "Ternary-Bonsai-27B-Q2_g64.gguf",
+   "model_sha256": "59a45d1ecef702b14531b06d22949f33b25c1897da31a8c0b298e01e4d9138eb",
+   "model_bytes": 7585330240,
+   "arch": "qwen35",
+   "name": "Bonsai-27B",
+   "n_layer": 64,
+   "n_head_kv": 4,
+   "head_dim": 256,
+   "codebook_file": "bonsai-27b_pca256q4_0.cpca.gguf",
+   "codebook_sha256": "d2a396a1ed18808dfb2ac140b6103744a50eaaf2d7c392e5ebc8b42d7f617b10",
+   "codebook_bytes": 42247648,
+   "recommended": {
+    "ctk": "q4_0",
+    "ctv": "q4_0",
+    "flash_attn": "on"
+   },
+   "measured": {
+    "q4_0 fitted": "143/144, 143/144 vs 144/144, 142/144 (3.27x)"
+   },
+   "results": [
+    "results/cpca-bonsai-27b.json"
+   ],
+   "note": "obtain the model file from its publisher; the sha256 identifies the exact file these rows were measured on"
+  }
+ ]
+}

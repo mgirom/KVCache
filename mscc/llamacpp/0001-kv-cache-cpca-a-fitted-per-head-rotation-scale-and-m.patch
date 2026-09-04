@@ -1,7 +1,7 @@
 From 53d60edd7ada78193db2bfa3d0032f67aae0f414 Mon Sep 17 00:00:00 2001
 From: mgirom <84082110+mgirom@users.noreply.github.com>
 Date: Wed, 2 Sep 2026 20:35:00 +0100
-Subject: [PATCH 1/5] kv-cache: cpca -- a fitted per-head rotation, scale and
+Subject: [PATCH 1/7] kv-cache: cpca -- a fitted per-head rotation, scale and
  mean in place of the Hadamard
 
 When LLAMA_KV_CODEBOOK names a GGUF of per-layer, per-head matrices, the quantised

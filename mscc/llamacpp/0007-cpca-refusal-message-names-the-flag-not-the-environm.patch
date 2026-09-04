@@ -1,0 +1,27 @@
+From 5bcebf39f1baf8f8ab2ae397fa89c7c1f12e1aef Mon Sep 17 00:00:00 2001
+From: mgirom <84082110+mgirom@users.noreply.github.com>
+Date: Fri, 4 Sep 2026 09:12:44 +0100
+Subject: [PATCH 7/7] cpca: refusal message names the flag, not the environment
+ variable
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+---
+ src/llama-kv-cache.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/llama-kv-cache.cpp b/src/llama-kv-cache.cpp
+index 5538a4a..307b8fb 100644
+--- a/src/llama-kv-cache.cpp
++++ b/src/llama-kv-cache.cpp
+@@ -120,7 +120,7 @@ llama_kv_cache::llama_kv_cache(
+         const char * cpca_path = (kv_codebook && *kv_codebook) ? kv_codebook : getenv("LLAMA_KV_CODEBOOK");
+         if (cpca_path && *cpca_path) {
+             if (!(ggml_is_quantized(type_k) || ggml_is_quantized(type_v))) {
+-                throw std::runtime_error("LLAMA_KV_CODEBOOK set but the KV cache is not quantised; the codebook replaces the rotation of a quantised cache");
++                throw std::runtime_error("a KV codebook was given but the KV cache is not quantised (-ctk/-ctv); the codebook replaces the rotation of a quantised cache");
+             }
+             gguf_init_params gp = { /*.no_alloc =*/ false, /*.ctx =*/ &cpca_host };
+             cpca_gguf = gguf_init_from_file(cpca_path, gp);
+-- 
+2.43.0
+

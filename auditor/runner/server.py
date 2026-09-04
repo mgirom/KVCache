@@ -117,11 +117,14 @@ class LlamaServer:
 
     def __init__(self, binary, model, ctx, port=8099, ngl=None,
                  cache_type_k="f16", cache_type_v="f16", extra=(), log_dir=None,
-                 env=None):
+                 env=None, codebook=None):
         self.binary, self.model, self.ctx, self.port = binary, model, ctx, port
         # extra environment for the server process (the cpca prototype selects its
         # codebook by LLAMA_KV_CODEBOOK); recorded so a result says what ran
         self.env = dict(env or {})
+        # cpca: passed by flag to the patched server; the environment variable stays
+        # for binaries without the flag
+        self.codebook = codebook
         self.ngl, self.ctk, self.ctv = ngl, cache_type_k, cache_type_v
         self.extra = list(extra)
         self.log_dir = log_dir
@@ -134,6 +137,8 @@ class LlamaServer:
              "-ctk", self.ctk, "-ctv", self.ctv,
              "--host", "127.0.0.1", "--port", str(self.port),
              "--no-webui", "-np", "1"]
+        if self.codebook:
+            c += ["--kv-codebook", os.path.abspath(self.codebook)]
         # -ngl is deliberately NOT passed by default. Forcing "-ngl 99" means "put
         # every layer on the GPU and fail if you cannot", which is fine on the machine
         # this was written on and a crash on a laptop, on a busy GPU, or on a CPU-only

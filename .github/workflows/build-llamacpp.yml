@@ -1,0 +1,56 @@
+name: build llama.cpp with the cpca patches
+
+on:
+  push:
+    paths: ["mscc/llamacpp/**", ".github/workflows/build-llamacpp.yml"]
+  pull_request:
+    paths: ["mscc/llamacpp/**"]
+  workflow_dispatch:
+
+env:
+  LLAMA_CPP_COMMIT: 11cd988
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: clone llama.cpp at the pinned commit
+        shell: bash
+        run: |
+          git clone --quiet https://github.com/ggml-org/llama.cpp.git
+          cd llama.cpp && git checkout --quiet "$LLAMA_CPP_COMMIT"
+      - name: apply the patch series
+        shell: bash
+        run: |
+          cd llama.cpp
+          git config user.email ci@example.invalid && git config user.name ci
+          git am --3way ../mscc/llamacpp/*.patch
+          git log --oneline -8
+      - name: build llama-server (CPU)
+        shell: bash
+        run: |
+          cd llama.cpp
+          cmake -B build -DGGML_NATIVE=OFF -DLLAMA_CURL=OFF
+          cmake --build build --config Release --target llama-server -j 4
+      - name: the flag exists
+        shell: bash
+        run: |
+          bin=$(find llama.cpp/build -name 'llama-server*' -type f | head -1)
+          "$bin" --help 2>&1 | grep -q -- "--kv-codebook"
+
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: validator self-tests and every filed submission
+        run: |
+          python3 auditor/validate.py --selftest
+          for f in $(find submissions -name '*.json'); do python3 auditor/validate.py "$f" | tail -1 | grep -q '^valid' || { echo "INVALID: $f"; exit 1; }; done
+          echo "all submissions valid"

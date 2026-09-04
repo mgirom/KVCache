@@ -22,6 +22,8 @@ ap = argparse.ArgumentParser()
 ap.add_argument("codebook")
 ap.add_argument("-o", "--out", required=True)
 ap.add_argument("--n-head", type=int, required=True, help="query heads (for output-side biases)")
+ap.add_argument("--model-gguf", default="", help="the model file this codebook is for; its identity is written so llama.cpp refuses a mismatch")
+ap.add_argument("--fp16", action="store_true", help="store the matrices as f16 (halves the file; llama.cpp converts on load)")
 a = ap.parse_args()
 
 cb = KVCodebook.load(a.codebook)
@@ -41,6 +43,15 @@ w.add_uint32("cpca.n_layer", n_layers); w.add_uint32("cpca.n_head_kv", H)
 w.add_uint32("cpca.n_head", a.n_head); w.add_uint32("cpca.head_dim", d)
 for key in ("model", "corpus_sha256", "n_states"):
     if key in m: w.add_string(f"cpca.{key}", str(m[key]))
+if a.model_gguf:
+    from mscc.ggufmeta import gguf_metadata, model_geometry
+    kv = gguf_metadata(a.model_gguf); g = model_geometry(a.model_gguf)
+    assert g["n_head_kv"] == H and g["head_dim"] == d and g["n_head"] == a.n_head, ("model/codebook geometry mismatch", g, H, d, a.n_head)
+    w.add_string("cpca.model_arch", g["arch"]); w.add_string("cpca.model_name", kv.get("general.name", ""))
+    w.add_uint32("cpca.n_layer", g["n_layer"]); w.add_uint32("cpca.n_head_kv", H); w.add_uint32("cpca.head_dim", d)
+    w.add_string("cpca.model_file", os.path.basename(a.model_gguf))
+    print(f"bound to {g['arch']} '{kv.get('general.name', '')}' {g['n_layer']}L x {H}kv x {d}d")
+dtype = np.float16 if a.fp16 else np.float32
 
 def stack(unit, fn):
     return np.stack([fn(cb.books[(l, f"{unit}{h}")]) for h in range(H)]).astype(np.float32)
@@ -66,7 +77,7 @@ for l in range(n_layers):
     for name, arr in (("q_rot", q_rot), ("k_rot", k_rot), ("k_bias", k_bias), ("k_unrot", k_unrot),
                       ("k_mean", k_mean), ("v_rot", v_rot), ("v_bias", v_bias), ("v_unrot", v_unrot),
                       ("v_mean", v_mean_full)):
-        w.add_tensor(f"blk.{l}.cpca_{name}", np.ascontiguousarray(arr, dtype=np.float32))
+        w.add_tensor(f"blk.{l}.cpca_{name}", np.ascontiguousarray(arr, dtype=dtype))
 w.write_header_to_file(); w.write_kv_data_to_file(); w.write_tensors_to_file(); w.close()
 print(f"wrote {a.out}: {os.path.getsize(a.out)/1e6:.1f} MB, {n_layers} layers, {H} kv heads x {d}, {a.n_head} query heads")
 

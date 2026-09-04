@@ -75,7 +75,8 @@ class LlamaCppBackend(Backend):
             env["LLAMA_KV_CODEBOOK"] = os.path.abspath(codebook)
         self.codebook = codebook
         self.srv = LlamaServer(binary, model, ctx, port=port, cache_type_k=ctk,
-                               cache_type_v=ctv, log_dir=log_dir, ngl=ngl, env=env)
+                               cache_type_v=ctv, log_dir=log_dir, ngl=ngl, env=env,
+                               codebook=codebook)
 
     def start(self):
         self.srv.start()

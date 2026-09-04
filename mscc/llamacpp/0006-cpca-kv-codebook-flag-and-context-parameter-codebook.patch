@@ -1,0 +1,315 @@
+From 249aa0db4b1b7865d7e2be7ce5826fe3f353c259 Mon Sep 17 00:00:00 2001
+From: mgirom <84082110+mgirom@users.noreply.github.com>
+Date: Fri, 4 Sep 2026 09:10:42 +0100
+Subject: [PATCH 6/7] cpca: --kv-codebook flag and context parameter; codebook
+ bound to model identity; f16 codebooks; finite check
+
+- llama_context_params.kv_codebook (appended, default NULL) -> llama_memory_params ->
+  llama_kv_cache constructor (trailing defaulted parameter); the hybrid memory passes
+  it through to its attention cache. LLAMA_KV_CODEBOOK remains as a fallback.
+- The codebook GGUF may carry cpca.model_arch / model_name / n_layer / n_head_kv /
+  head_dim; a mismatch refuses with the reason. Not cryptographic: it catches the
+  wrong model, which is the realistic mistake.
+- Codebook tensors may be f16 (halves the file); every value is checked finite.
+- common: --kv-codebook FNAME (env LLAMA_ARG_KV_CODEBOOK).
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+---
+ common/arg.cpp              |  8 ++++++
+ common/common.cpp           |  1 +
+ common/common.h             |  1 +
+ include/llama.h             |  3 +++
+ src/llama-context.cpp       |  2 ++
+ src/llama-kv-cache.cpp      | 54 +++++++++++++++++++++++++++++++++----
+ src/llama-kv-cache.h        |  3 ++-
+ src/llama-memory-hybrid.cpp |  7 ++---
+ src/llama-memory-hybrid.h   |  4 ++-
+ src/llama-memory.h          |  3 +++
+ src/llama-model.cpp         | 12 ++++++---
+ 11 files changed, 84 insertions(+), 14 deletions(-)
+
+diff --git a/common/arg.cpp b/common/arg.cpp
+index 86f8610..ef2e9a4 100644
+--- a/common/arg.cpp
++++ b/common/arg.cpp
+@@ -2448,6 +2448,14 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
+             params.cache_type_v = kv_cache_type_from_str(value);
+         }
+     ).set_env("LLAMA_ARG_CACHE_TYPE_V"));
++    add_opt(common_arg(
++        {"--kv-codebook"}, "FNAME",
++        "cpca: codebook GGUF giving a quantised KV cache a basis fitted to this model "
++        "(replaces the Hadamard rotation; requires a quantised -ctk/-ctv)",
++        [](common_params & params, const std::string & value) {
++            params.kv_codebook = value;
++        }
++    ).set_env("LLAMA_ARG_KV_CODEBOOK"));
+     add_opt(common_arg(
+         {"--hellaswag"},
+         "compute HellaSwag score over random tasks from datafile supplied with -f",
+diff --git a/common/common.cpp b/common/common.cpp
+index 3d54bd6..2d5e13b 100644
+--- a/common/common.cpp
++++ b/common/common.cpp
+@@ -1750,6 +1750,7 @@ struct llama_context_params common_context_params_to_llama(const common_params &
+ 
+     cparams.type_k = params.cache_type_k;
+     cparams.type_v = params.cache_type_v;
++    cparams.kv_codebook = params.kv_codebook.empty() ? nullptr : params.kv_codebook.c_str();
+ 
+     return cparams;
+ }
+diff --git a/common/common.h b/common/common.h
+index de49dac..65f9cda 100644
+--- a/common/common.h
++++ b/common/common.h
+@@ -576,6 +576,7 @@ struct common_params {
+ 
+     ggml_type cache_type_k = GGML_TYPE_F16; // KV cache data type for the K
+     ggml_type cache_type_v = GGML_TYPE_F16; // KV cache data type for the V
++    std::string kv_codebook; // cpca: codebook GGUF for a quantised KV cache (fitted basis)
+ 
+     common_conversation_mode conversation_mode = COMMON_CONVERSATION_MODE_AUTO;
+ 
+diff --git a/include/llama.h b/include/llama.h
+index a04177f..fd4e49f 100644
+--- a/include/llama.h
++++ b/include/llama.h
+@@ -408,6 +408,9 @@ extern "C" {
+         // a source/target/parent context
+         // can be utilized in various ways, for example by sharing results or llama_memory between 2 contexts
+         struct llama_context * ctx_other;
++
++        // cpca: path to a KV codebook GGUF (fitted basis for a quantised cache); NULL = none
++        const char * kv_codebook;
+     };
+ 
+     struct llama_model_tensor_override {
+diff --git a/src/llama-context.cpp b/src/llama-context.cpp
+index 0402044..fa6418d 100644
+--- a/src/llama-context.cpp
++++ b/src/llama-context.cpp
+@@ -390,6 +390,7 @@ llama_context::llama_context(
+             /*.swa_full  =*/ params.swa_full,
+             /*.ctx_type  =*/ cparams.ctx_type,
+             /*.mem_other =*/ llama_get_memory(cparams.ctx_other),
++            /*.kv_codebook =*/ params.kv_codebook,
+         };
+ 
+         memory.reset(model.create_memory(params_mem, cparams));
+@@ -3545,6 +3546,7 @@ llama_context_params llama_context_default_params() {
+         /*.sampler                     =*/ nullptr,
+         /*.n_sampler                   =*/ 0,
+         /*.ctx_other                   =*/ nullptr,
++        /*.kv_codebook                 =*/ nullptr,
+     };
+ 
+     return result;
+diff --git a/src/llama-kv-cache.cpp b/src/llama-kv-cache.cpp
+index bfe4c24..5538a4a 100644
+--- a/src/llama-kv-cache.cpp
++++ b/src/llama-kv-cache.cpp
+@@ -1,5 +1,6 @@
+ #include "llama-kv-cache.h"
+ #include "gguf.h"
++#include <vector>
+ 
+ #include "llama-impl.h"
+ #include "llama-io.h"
+@@ -78,7 +79,8 @@ llama_kv_cache::llama_kv_cache(
+            llama_memory_t   mem_other,
+     const layer_filter_cb & filter,
+     const  layer_reuse_cb & reuse,
+-    const  layer_share_cb & share) :
++    const  layer_share_cb & share,
++                  const char * kv_codebook) :
+     model(model), hparams(hparams), v_trans(v_trans),
+     n_seq_max(n_seq_max), n_stream(unified ? 1 : n_seq_max), n_pad(n_pad), n_swa(n_swa), swa_type(swa_type),
+     other(static_cast<llama_kv_cache *>(mem_other)),
+@@ -113,7 +115,9 @@ llama_kv_cache::llama_kv_cache(
+     ggml_context * cpca_host = nullptr;
+     gguf_context * cpca_gguf = nullptr;
+     {
+-        const char * cpca_path = getenv("LLAMA_KV_CODEBOOK");
++        // the context parameter wins; the environment variable remains as a fallback for
++        // harnesses that cannot pass parameters
++        const char * cpca_path = (kv_codebook && *kv_codebook) ? kv_codebook : getenv("LLAMA_KV_CODEBOOK");
+         if (cpca_path && *cpca_path) {
+             if (!(ggml_is_quantized(type_k) || ggml_is_quantized(type_v))) {
+                 throw std::runtime_error("LLAMA_KV_CODEBOOK set but the KV cache is not quantised; the codebook replaces the rotation of a quantised cache");
+@@ -123,6 +127,36 @@ llama_kv_cache::llama_kv_cache(
+             if (!cpca_gguf) {
+                 throw std::runtime_error(std::string("failed to read cpca codebook: ") + cpca_path);
+             }
++            // bind the codebook to the model it was fitted on: architecture, name and
++            // geometry. Not cryptographic; it catches the realistic mistake, the wrong
++            // model, and refuses rather than degrading.
++            {
++                auto want_str = [&](const char * key) -> std::string {
++                    const int64_t k = gguf_find_key(cpca_gguf, key);
++                    return k < 0 ? std::string() : std::string(gguf_get_val_str(cpca_gguf, k));
++                };
++                auto want_u32 = [&](const char * key) -> int64_t {
++                    const int64_t k = gguf_find_key(cpca_gguf, key);
++                    return k < 0 ? -1 : (int64_t) gguf_get_val_u32(cpca_gguf, k);
++                };
++                const std::string cb_arch = want_str("cpca.model_arch");
++                const std::string my_arch = llm_arch_name(model.arch);
++                if (!cb_arch.empty() && cb_arch != my_arch) {
++                    throw std::runtime_error("cpca codebook was fitted on architecture '" + cb_arch + "', this model is '" + my_arch + "'");
++                }
++                char buf[256] = {0};
++                const int32_t nn = llama_model_meta_val_str(&model, "general.name", buf, sizeof(buf));
++                const std::string cb_name = want_str("cpca.model_name");
++                if (nn > 0 && !cb_name.empty() && cb_name != std::string(buf)) {
++                    throw std::runtime_error("cpca codebook was fitted on model '" + cb_name + "', this model is '" + std::string(buf) + "'");
++                }
++                const int64_t cb_layers = want_u32("cpca.n_layer"), cb_kv = want_u32("cpca.n_head_kv"), cb_hd = want_u32("cpca.head_dim");
++                if ((cb_layers >= 0 && cb_layers != (int64_t) hparams.n_layer()) ||
++                    (cb_kv     >= 0 && cb_kv     != (int64_t) hparams.n_head_kv()) ||
++                    (cb_hd     >= 0 && cb_hd     != (int64_t) hparams.n_embd_head_k())) {
++                    throw std::runtime_error("cpca codebook geometry does not match this model (layers / kv heads / head dim)");
++                }
++            }
+             has_cpca = true;
+             cpca_layers.resize(hparams.n_layer());
+             LLAMA_LOG_WARN("%s: cpca codebook: %s (%d tensors) -- replacing the Hadamard rotation\n",
+@@ -385,10 +419,20 @@ llama_kv_cache::llama_kv_cache(
+                 if (ggml_nelements(src) != ggml_nelements(dst) || src->ne[0] != dst->ne[0] || src->ne[1] != dst->ne[1]) {
+                     throw std::runtime_error(std::string("cpca codebook tensor has the wrong shape for this model: ") + name);
+                 }
+-                if (src->type != GGML_TYPE_F32) {
+-                    throw std::runtime_error(std::string("cpca codebook tensor must be f32: ") + name);
++                std::vector<float> host(ggml_nelements(dst));
++                if (src->type == GGML_TYPE_F32) {
++                    memcpy(host.data(), src->data, ggml_nbytes(dst));
++                } else if (src->type == GGML_TYPE_F16) {
++                    ggml_fp16_to_fp32_row((const ggml_fp16_t *) src->data, host.data(), ggml_nelements(dst));
++                } else {
++                    throw std::runtime_error(std::string("cpca codebook tensor must be f32 or f16: ") + name);
++                }
++                for (float v : host) {
++                    if (!std::isfinite(v)) {
++                        throw std::runtime_error(std::string("cpca codebook tensor has a non-finite value: ") + name);
++                    }
+                 }
+-                ggml_backend_tensor_set(dst, src->data, 0, ggml_nbytes(dst));
++                ggml_backend_tensor_set(dst, host.data(), 0, ggml_nbytes(dst));
+                 ++n_set;
+             }
+         }
+diff --git a/src/llama-kv-cache.h b/src/llama-kv-cache.h
+index 2b30f13..22422d6 100644
+--- a/src/llama-kv-cache.h
++++ b/src/llama-kv-cache.h
+@@ -112,7 +112,8 @@ public:
+                llama_memory_t   mem_other,
+         const layer_filter_cb & filter,
+         const  layer_reuse_cb & reuse,
+-        const  layer_share_cb & share);
++        const  layer_share_cb & share,
++                  const char * kv_codebook = nullptr);
+ 
+     // cpca: a data-fitted per-head rotation (with scale and mean) that replaces the
+     // Hadamard rotation of the quantised cache when LLAMA_KV_CODEBOOK names a GGUF.
+diff --git a/src/llama-memory-hybrid.cpp b/src/llama-memory-hybrid.cpp
+index 42c7381..48e8a8b 100644
+--- a/src/llama-memory-hybrid.cpp
++++ b/src/llama-memory-hybrid.cpp
+@@ -29,7 +29,8 @@ llama_memory_hybrid::llama_memory_hybrid(
+                      bool   unified,
+                             /* layer filters */
+     const layer_filter_cb & filter_attn,
+-    const layer_filter_cb & filter_recr) :
++    const layer_filter_cb & filter_recr,
++            const char * kv_codebook) :
+     hparams(model.hparams),
+     mem_attn(new llama_kv_cache(
+         model,
+@@ -49,8 +50,8 @@ llama_memory_hybrid::llama_memory_hybrid(
+             [&](int32_t il) { return !hparams.is_recr(il); }
+             : filter_attn,
+         nullptr,
+-        nullptr
+-    )),
++        nullptr,
++        kv_codebook)),
+     mem_recr(new llama_memory_recurrent(
+         model,
+         type_r,
+diff --git a/src/llama-memory-hybrid.h b/src/llama-memory-hybrid.h
+index 484eafb..5c6b111 100644
+--- a/src/llama-memory-hybrid.h
++++ b/src/llama-memory-hybrid.h
+@@ -39,7 +39,9 @@ public:
+                      bool   unified,
+                             /* layer filters */
+     const layer_filter_cb & filter_attn = nullptr,
+-    const layer_filter_cb & filter_recr = nullptr);
++    const layer_filter_cb & filter_recr = nullptr,
++            /* cpca */
++            const char * kv_codebook = nullptr);
+ 
+     ~llama_memory_hybrid() = default;
+ 
+diff --git a/src/llama-memory.h b/src/llama-memory.h
+index db82539..ef8c248 100644
+--- a/src/llama-memory.h
++++ b/src/llama-memory.h
+@@ -25,6 +25,9 @@ struct llama_memory_params {
+     llama_context_type ctx_type;
+ 
+     llama_memory_t mem_other;
++
++    // cpca codebook GGUF for quantised KV caches (nullptr = Hadamard basis as usual)
++    const char * kv_codebook = nullptr;
+ };
+ 
+ enum llama_memory_status {
+diff --git a/src/llama-model.cpp b/src/llama-model.cpp
+index c34700f..df80006 100644
+--- a/src/llama-model.cpp
++++ b/src/llama-model.cpp
+@@ -2256,7 +2256,8 @@ llama_memory_i * llama_model::create_memory(const llama_memory_params & params,
+                             nullptr,
+                             filter,
+                             nullptr,
+-                            nullptr);
++                            nullptr,
++                                params.kv_codebook);
+                 } else {
+                     // Main context: DSA cache for the trunk layers only - the nextn
+                     // layer(s) are never attended by the trunk graph.
+@@ -2308,7 +2309,8 @@ llama_memory_i * llama_model::create_memory(const llama_memory_params & params,
+                             nullptr,
+                             filter,
+                             nullptr,
+-                            nullptr);
++                            nullptr,
++                                params.kv_codebook);
+                 } else {
+                     // main context: DSA cache for the trunk full-attention layers plus a window-sized SWA cache
+                     llama_kv_cache::layer_filter_cb filter_mla = nullptr;
+@@ -2488,7 +2490,8 @@ llama_memory_i * llama_model::create_memory(const llama_memory_params & params,
+                             /* offload           */ cparams.offload_kqv,
+                             /* unified           */ cparams.kv_unified,
+                             /* filter_attn       */ std::move(filter_attn),
+-                            /* filter_recr       */ std::move(filter_recr));
++                            /* filter_recr       */ std::move(filter_recr),
++                        /* kv_codebook */ params.kv_codebook);
+                     }
+                 } else {
+                     llama_kv_cache::layer_filter_cb filter = nullptr;
+@@ -2590,7 +2593,8 @@ llama_memory_i * llama_model::create_memory(const llama_memory_params & params,
+                                 nullptr,
+                                 filter,
+                                 nullptr,
+-                                nullptr);
++                                nullptr,
++                                params.kv_codebook);
+                     }
+                 }
+             }
+-- 
+2.43.0
+
