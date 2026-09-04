@@ -154,6 +154,6 @@ name and geometry, refused on mismatch; f16 codebooks at 37 to 48 MB, checked fi
 load; the three codebooks published on the `codebooks` branch with a registry of
 model hashes and measured rows; `tools/kvcache.py` to pull, serve and audit; a CI
 build of the patched llama.cpp on Linux, macOS and Windows that also validates every
-filed submission; `reproduce-llamacpp.sh`; a documents index. Running: the 16k rung
+filed submission; `reproduce-llamacpp.sh`, verified from a clean clone (pinned commit, seven patches, built, flag present); a documents index. CI green on all three platforms. Running: the 16k rung
 on both ternary models and the f32 row on the 1.7B. Still yours: the Pages source
 switch and PR #1.

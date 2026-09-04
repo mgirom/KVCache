@@ -1,5 +1,7 @@
 # KVCache
 
+[![build llama.cpp with the cpca patches](https://github.com/mgirom/KVCache/actions/workflows/build-llamacpp.yml/badge.svg)](https://github.com/mgirom/KVCache/actions/workflows/build-llamacpp.yml)
+
 Two things, and the second exists because the first needed proving.
 
 | | |
