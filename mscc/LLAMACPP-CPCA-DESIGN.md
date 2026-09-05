@@ -231,3 +231,23 @@ cache in 2k windows and whitening the codes: 138/144 and 95/96 against 136/144 a
 sat 7 to 9 items lower at 1k because its keys carried positions a 1k context never
 sees. Windowed capture is now the default. The 8B and 27B codebooks were single-sequence
 fits and were free at every rung regardless; refitting them windowed is optional.
+
+## Phase 4 research: the weight-side rotation (running, 2026-09-05)
+
+The cache result asked an obvious question of the weights. A pre-norm transformer's
+residual stream is read only through RMSNorm followed by a linear map and written only
+by a linear map added back in, and RMSNorm's scale is rotation-invariant, so for any
+orthogonal R the model with x′ = Rᵀx is the same model once the embedding rows, every
+norm gain (folded into the linear that follows it), the two residual writers per block
+and the untied output head are rotated to match. Quantising the rotated weights is
+what changes. `alphabet/scripts/rotate_weights.py` does this for a HuggingFace
+checkpoint with either a random-signed Hadamard (QuaRot's R1) or the PCA basis of the
+residual stream's own activations, checks the rotated model's logits against the
+original before saving, and writes an untied bf16 checkpoint that llama.cpp converts
+and quantises like any other.
+
+Arms, one run each, same items, standard profile, each run's f16-cache row being the
+number for that weight file: plain f16 (the model); plain Q4_0; Hadamard-rotated Q4_0;
+PCA-rotated Q4_0. **Pass:** the rotated 4-bit files close on the f16 row where the plain
+4-bit file falls short; if plain Q4_0 is already free on this model the experiment is
+inconclusive here and moves to a model where it is not.
