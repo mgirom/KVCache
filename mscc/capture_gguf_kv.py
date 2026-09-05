@@ -104,6 +104,7 @@ ap.add_argument("--binary", default=os.path.join(ROOT, "llama.cpp/build-cuda/bin
 ap.add_argument("-o", "--out", required=True, help="output .kvcb.npz (a .cpca.gguf is written beside it)")
 ap.add_argument("--state-file", default="", help="reuse a saved state file instead of running the server")
 ap.add_argument("--whiten", action="store_true", help="scale code components to unit spread (see kvfit --whiten)")
+ap.add_argument("--whiten-power", type=float, default=1.0, help="partial whitening: divide by spread^power (1 = full)")
 a = ap.parse_args()
 
 geo = model_geometry(a.gguf); print("model:", geo, flush=True)
@@ -134,10 +135,10 @@ states, n_cells = parse_state(os.path.join(save_dir, fname), geo)
 print(f"parsed {n_cells} cells x {len(geo['kv_layers'])} KV layers of {geo['n_layer']}; K row norm mean {float(states[(geo['kv_layers'][0],'k')].norm(dim=1).mean()):.2f}", flush=True)
 H, d = geo["n_head_kv"], geo["head_dim"]
 bph = a.codes * GGML_BLOCK_BYTES[a.quant] * 8 // 32
-books = K.fit_kv_codebooks_perhead(states, bph, H, d, quant=a.quant, codes=a.codes, whiten=a.whiten,
+books = K.fit_kv_codebooks_perhead(states, bph, H, d, quant=a.quant, codes=a.codes, whiten=a.whiten, whiten_power=a.whiten_power,
                                    progress=lambda i, n, key: (i % 16 == 0 and print(f"  fitted {i+1}/{n} units", flush=True)))
 meta = {"model": os.path.basename(a.gguf), "arch": geo["arch"], "basis": "postrope", "per_head": True,
-        "quant": a.quant, "codes_per_head": a.codes, "bits_per_head": bph, "unit_bits": H * bph, "whiten": bool(a.whiten),
+        "quant": a.quant, "codes_per_head": a.codes, "bits_per_head": bph, "unit_bits": H * bph, "whiten": bool(a.whiten), "whiten_power": a.whiten_power if a.whiten else 0.0,
         "kv_heads": H, "head_dim": d, "n_head": geo["n_head"], "n_layers": geo["n_layer"],
         "n_states": n_cells, "corpus_sha256": corpus_digest(text), "captured_from": "llama.cpp state file"}
 cb = KVCodebook(books=books, meta=meta); cb.save(a.out)

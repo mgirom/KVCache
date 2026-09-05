@@ -335,7 +335,8 @@ def q8_0_dequantize(q: torch.Tensor, d: torch.Tensor) -> torch.Tensor:
 
 
 def fit_fixed(states: torch.Tensor, dims: int, k: int, *, quant: str = "q8_0",
-              meta: dict[str, Any] | None = None, seed: int = 0, whiten: bool = False) -> Codebook:
+              meta: dict[str, Any] | None = None, seed: int = 0, whiten: bool = False,
+              whiten_power: float = 1.0) -> Codebook:
     """The llama.cpp live-path codebook: the same standardise+PCA as fit(), truncated
     to a FIXED k components, each stored as ggml q8_0. No bit allocation, no clipping:
     the block scale adapts per token. k must be a multiple of 32 (a q8_0 block)."""
@@ -355,15 +356,17 @@ def fit_fixed(states: torch.Tensor, dims: int, k: int, *, quant: str = "q8_0",
     # so the block that holds the top component drowns the small ones; dividing each
     # component by its own spread puts them on equal footing, and the exporter folds
     # the inverse into the query and output matrices, so nothing changes but the error.
-    zs = ((Xc / s) @ V).std(0).clamp(min=1e-6) if whiten else None
+    # whiten_power < 1 is partial whitening: it narrows the spread between components
+    # without equalising them, sparing the sink rows some of the amplification
+    zs = ((Xc / s) @ V).std(0).clamp(min=1e-6).pow(whiten_power) if whiten else None
     m = dict(meta or {})
     assert quant in GGML_BLOCK_BYTES, quant
     m.update({"codec": "cpca", "quant": quant, "requested_dims": int(dims), "k": int(k),
               "funded_dims": int(k), "actual_bits": int(k * GGML_BLOCK_BYTES[quant] * 8 // 32),
               "n_states": int(X.shape[0]), "hidden_dim": int(X.shape[1]), "seed": int(seed),
               "explained_var": float(evals[:k].sum() / evals.sum()),
-              "whiten": bool(whiten),
-              "codec_name": f"pca{k}{quant}" + ("w" if whiten else "")})
+              "whiten": bool(whiten), "whiten_power": float(whiten_power) if whiten else 0.0,
+              "codec_name": f"pca{k}{quant}" + (("w" if whiten_power == 1.0 else f"w{whiten_power:g}") if whiten else "")})
     b = np.full(k, 8 if quant == "q8_0" else 4, dtype=np.int32)
     zeros = np.zeros(k, dtype=np.float32)
     return Codebook(mu=mu.cpu().numpy(), s=s.cpu().numpy(), V=V.cpu().numpy(), b=b,

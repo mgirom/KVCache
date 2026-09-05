@@ -314,7 +314,7 @@ def head_slices(x, heads, head_dim):
 
 
 def fit_kv_codebooks_perhead(states, bits_per_head, heads, head_dim, progress=None,
-                             quant="cpca", codes=0, whiten=False, **kw):
+                             quant="cpca", codes=0, whiten=False, whiten_power=1.0, **kw):
     """One codebook per (layer, K|V, HEAD) instead of one per (layer, K|V).
 
     The shipped codec fits a single basis across all heads, which compresses better --
@@ -333,7 +333,7 @@ def fit_kv_codebooks_perhead(states, bits_per_head, heads, head_dim, progress=No
                     "per_head": True, **kw}
             if quant in ("q8_0", "q4_0"):
                 # llama.cpp live path: fixed k codes per head, one ggml block type
-                out[(layer, f"{unit}{h}")] = mcodec.fit_fixed(Xh, head_dim, codes, quant=quant, meta=meta, whiten=whiten)
+                out[(layer, f"{unit}{h}")] = mcodec.fit_fixed(Xh, head_dim, codes, quant=quant, meta=meta, whiten=whiten, whiten_power=whiten_power)
             else:
                 out[(layer, f"{unit}{h}")] = mcodec.fit(Xh, head_dim, bits_per_head, meta=meta)
         if progress:
