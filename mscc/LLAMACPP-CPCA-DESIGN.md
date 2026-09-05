@@ -199,3 +199,22 @@ construction; the earlier 1.7B rows were measured with the HF-fitted codebook, s
 audits of the GGUF-fitted plain, fully whitened and half-whitened codebooks are queued
 to see how much of the 4k gap this alone closes.
 | Qwen3-1.7B | q4_0 fitted, fused multiply | 80.9 | 66.2 | 306 | 1257 |
+
+**Which codebook, honestly (2026-09-05).** Five standard-profile runs of the fitted
+`q4_0` arm on the 1.7B, each against its own reference (136/144, 95/96 = 231/240 every
+time; Hadamard `q4_0` 120/144, 82/96 = 202 every time):
+
+| codebook | fit states | 1k | 4k | total |
+|---|---|---:|---:|---:|
+| HF-fit plain, first build | HF bf16, windows | 134 | 90 | 224 |
+| HF-fit plain, fused build | HF bf16, windows | 139 | 94 | 233 |
+| GGUF-fit, whitened | this GGUF, one 16k sequence | 134 | 96 | 230 |
+| GGUF-fit, half-whitened | this GGUF, one 16k sequence | 129 | 91 | 220 |
+| GGUF-fit, plain | this GGUF, one 16k sequence | 127 | 91 | 218 |
+
+Every fitted variant is within a few items of the reference and 16 to 31 items above
+the Hadamard; the same codebook moved 9 items between two runs, so differences under
+about that are noise. Two things are not noise: the Hadamard gap, and that the
+GGUF-fit codebooks sit lower at 1k. The GGUF capture prefilled the corpus as a single
+16k sequence, so its keys carry RoPE positions up to 16k, where the HF fit saw 2k
+windows; a windowed GGUF capture is the next test, and decides which codebook ships.

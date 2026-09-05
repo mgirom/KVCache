@@ -76,6 +76,11 @@ Standard profile, one run, the same 240 items, Qwen3-1.7B GGUF:
 | `q4_0`, Hadamard basis (llama.cpp today) | 120/144 | 82/96 | 3.24× |
 | `q4_0`, fitted basis (codebook fitted on HF bf16 states) | 134/144 | 90/96 | 3.19× |
 | **`q4_0`, fitted basis (fitted on this GGUF's own states, whitened)** | **134/144** | **96/96** | **3.23×** |
+
+Five standard-profile runs of the fitted `q4_0` arm with different codebooks total 218
+to 233 of 240 against the reference's 231 every time and the Hadamard's 202 every time;
+the same codebook moved 9 items between two runs, so differences below that are noise.
+The design record has the full table.
 | `q5_0`, Hadamard basis | 138/144 | 96/96 | 2.94× |
 | `q5_0`, fitted basis | 140/144 | 95/96 | 2.94× |
 | `iq4_nl`, Hadamard basis | 104/144 | 84/96 | 3.60× |
