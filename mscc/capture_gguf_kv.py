@@ -105,6 +105,8 @@ ap.add_argument("-o", "--out", required=True, help="output .kvcb.npz (a .cpca.gg
 ap.add_argument("--state-file", default="", help="reuse a saved state file instead of running the server")
 ap.add_argument("--whiten", action="store_true", help="scale code components to unit spread (see kvfit --whiten)")
 ap.add_argument("--whiten-power", type=float, default=1.0, help="partial whitening: divide by spread^power (1 = full)")
+ap.add_argument("--window", type=int, default=0, help="prefill the corpus in windows of this many tokens, each as its own sequence "
+                                                       "(positions restart at 0), so the fit sees the positions a served context does; 0 = one sequence")
 a = ap.parse_args()
 
 geo = model_geometry(a.gguf); print("model:", geo, flush=True)
@@ -122,16 +124,27 @@ else:
     srv.start()
     try:
         ids = requests.post(f"{srv.base}/tokenize", json={"content": text}).json()["tokens"][: a.tokens]
+        win = a.window or len(ids)
+        windows = [ids[i:i + win] for i in range(0, len(ids), win) if len(ids[i:i + win]) >= min(win, 256)]
+        fnames = []
         t0 = time.perf_counter()
-        r = requests.post(f"{srv.base}/completion", json={"prompt": ids, "n_predict": 1, "cache_prompt": True,
-                                                          "temperature": 0}, timeout=3600).json()
-        print(f"prefilled {r['timings']['prompt_n']} tokens in {time.perf_counter()-t0:.0f}s", flush=True)
-        r = requests.post(f"{srv.base}/slots/0?action=save", json={"filename": fname}, timeout=600).json()
-        print("saved:", {k: r[k] for k in r if k in ("n_saved", "n_written", "filename")}, flush=True)
+        for wi, chunk in enumerate(windows):
+            # cache_prompt False: each window is a fresh sequence, positions from 0
+            r = requests.post(f"{srv.base}/completion", json={"prompt": chunk, "n_predict": 1, "cache_prompt": False,
+                                                              "temperature": 0}, timeout=3600).json()
+            fn = f"capture_w{wi}.bin" if a.window else fname
+            r = requests.post(f"{srv.base}/slots/0?action=save", json={"filename": fn}, timeout=600).json()
+            fnames.append(fn)
+        print(f"prefilled {len(windows)} window(s) of up to {win} tokens in {time.perf_counter()-t0:.0f}s", flush=True)
     finally:
         srv.stop()
 
-states, n_cells = parse_state(os.path.join(save_dir, fname), geo)
+if a.state_file or not a.window:
+    states, n_cells = parse_state(os.path.join(save_dir, fname), geo)
+else:
+    parts = [parse_state(os.path.join(save_dir, fn), geo) for fn in fnames]
+    states = {k: torch.cat([p[0][k] for p in parts]) for k in parts[0][0]}
+    n_cells = sum(p[1] for p in parts)
 print(f"parsed {n_cells} cells x {len(geo['kv_layers'])} KV layers of {geo['n_layer']}; K row norm mean {float(states[(geo['kv_layers'][0],'k')].norm(dim=1).mean()):.2f}", flush=True)
 H, d = geo["n_head_kv"], geo["head_dim"]
 bph = a.codes * GGML_BLOCK_BYTES[a.quant] * 8 // 32
@@ -140,7 +153,8 @@ books = K.fit_kv_codebooks_perhead(states, bph, H, d, quant=a.quant, codes=a.cod
 meta = {"model": os.path.basename(a.gguf), "arch": geo["arch"], "basis": "postrope", "per_head": True,
         "quant": a.quant, "codes_per_head": a.codes, "bits_per_head": bph, "unit_bits": H * bph, "whiten": bool(a.whiten), "whiten_power": a.whiten_power if a.whiten else 0.0,
         "kv_heads": H, "head_dim": d, "n_head": geo["n_head"], "n_layers": geo["n_layer"],
-        "n_states": n_cells, "corpus_sha256": corpus_digest(text), "captured_from": "llama.cpp state file"}
+        "n_states": n_cells, "corpus_sha256": corpus_digest(text), "captured_from": "llama.cpp state file",
+        "capture_window": int(a.window)}
 cb = KVCodebook(books=books, meta=meta); cb.save(a.out)
 print(f"wrote {a.out} ({os.path.getsize(a.out)/1e6:.1f} MB)")
 out_gguf = a.out.replace(".kvcb.npz", ".cpca.gguf")
