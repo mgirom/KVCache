@@ -1,7 +1,7 @@
 From a92f539019be654a3e2a1846e9be9008debfa874 Mon Sep 17 00:00:00 2001
 From: mgirom <84082110+mgirom@users.noreply.github.com>
 Date: Wed, 2 Sep 2026 20:46:59 +0100
-Subject: [PATCH 4/8] kv-cache: cpca load messages at WARN so the server log
+Subject: [PATCH 4/9] kv-cache: cpca load messages at WARN so the server log
  records what ran
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>

@@ -1,7 +1,7 @@
 From 686b6a64df182c4690cb6c9a99c32db717324c77 Mon Sep 17 00:00:00 2001
 From: mgirom <84082110+mgirom@users.noreply.github.com>
 Date: Wed, 2 Sep 2026 20:43:52 +0100
-Subject: [PATCH 3/8] kv-cache: cpca helper infers layout from ne[0], not
+Subject: [PATCH 3/9] kv-cache: cpca helper infers layout from ne[0], not
  ggml_n_dims (breaks at n_tokens == 1)
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>

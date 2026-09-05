@@ -1,7 +1,7 @@
 From e250169eb23e2d59bfa5e6e7f87893206a7288a1 Mon Sep 17 00:00:00 2001
 From: mgirom <84082110+mgirom@users.noreply.github.com>
 Date: Sat, 5 Sep 2026 04:15:24 +0100
-Subject: [PATCH 8/8] cpca: per-head multiply as one ggml_mul_mat_id, no layout
+Subject: [PATCH 8/9] cpca: per-head multiply as one ggml_mul_mat_id, no layout
  copies; matrices f16 on device; query-side matrices per query head
 
 The permute-and-copy helper is replaced by the expert operator with constant index

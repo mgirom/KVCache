@@ -1,0 +1,67 @@
+From b2f46cda6dd2bb71db0e146e35e2d8cbf6841cb0 Mon Sep 17 00:00:00 2001
+From: mgirom <84082110+mgirom@users.noreply.github.com>
+Date: Sat, 5 Sep 2026 04:44:00 +0100
+Subject: [PATCH 9/9] cpca: one pair of index tables per buffer, shared across
+ layers (they scaled with context and counted as cache bytes)
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+---
+ src/llama-kv-cache.cpp | 22 ++++++++++++++--------
+ 1 file changed, 14 insertions(+), 8 deletions(-)
+
+diff --git a/src/llama-kv-cache.cpp b/src/llama-kv-cache.cpp
+index a94ebc8..7844718 100644
+--- a/src/llama-kv-cache.cpp
++++ b/src/llama-kv-cache.cpp
+@@ -1,5 +1,6 @@
+ #include "llama-kv-cache.h"
+ #include "gguf.h"
++#include <tuple>
+ #include <vector>
+ 
+ #include "llama-impl.h"
+@@ -168,6 +169,7 @@ llama_kv_cache::llama_kv_cache(
+     // buffers, data filled in by the scheduler later), but a codebook is a constant that
+     // must be resident before the first graph
+     std::map<ggml_backend_buffer_type_t, ggml_context_ptr> cpca_ctx_map;
++    std::map<std::tuple<ggml_backend_buffer_type_t, int64_t, int64_t>, std::pair<ggml_tensor *, ggml_tensor *>> cpca_ids_shared;
+     auto cpca_ctx_for_buft = [&](ggml_backend_buffer_type_t buft) -> ggml_context * {
+         auto it = cpca_ctx_map.find(buft);
+         if (it == cpca_ctx_map.end()) {
+@@ -337,8 +339,14 @@ llama_kv_cache::llama_kv_cache(
+             c.v_rot = mk3("v_rot");  c.v_unrot = mk3q("v_unrot");
+             c.k_bias = mk2("k_bias", hk); c.k_mean = mk2("k_mean", hk);
+             c.v_bias = mk2("v_bias", hk); c.v_mean = mk2("v_mean", hq);
+-            c.ids_q  = ggml_new_tensor_2d(cctx, GGML_TYPE_I32, hq, kv_size); ggml_format_name(c.ids_q,  "cpca_ids_q_l%d",  il);
+-            c.ids_kv = ggml_new_tensor_2d(cctx, GGML_TYPE_I32, hk, kv_size); ggml_format_name(c.ids_kv, "cpca_ids_kv_l%d", il);
++            // index tables are identical for every layer with these head counts: share one
++            // pair per buffer, so they cost bytes once rather than per layer per token
++            auto & shared = cpca_ids_shared[std::make_tuple(buft, hq, hk)];
++            if (!shared.first) {
++                shared.first  = ggml_new_tensor_2d(cctx, GGML_TYPE_I32, hq, kv_size); ggml_format_name(shared.first,  "cpca_ids_q_%d_%d",  (int) hq, (int) hk);
++                shared.second = ggml_new_tensor_2d(cctx, GGML_TYPE_I32, hk, kv_size); ggml_format_name(shared.second, "cpca_ids_kv_%d_%d", (int) hq, (int) hk);
++            }
++            c.ids_q = shared.first; c.ids_kv = shared.second;
+         }
+ 
+         map_layer_ids[il] = layers.size();
+@@ -457,12 +465,10 @@ llama_kv_cache::llama_kv_cache(
+                 ++n_set;
+             }
+         }
+-        // the index tables: constant, per layer
+-        for (uint32_t il = 0; il < hparams.n_layer(); ++il) {
+-            if (map_layer_ids.find(il) == map_layer_ids.end() || !cpca_layers[il].ids_q) {
+-                continue;
+-            }
+-            auto & c = cpca_layers[il];
++        // the index tables: constant, one pair per (buffer, head counts)
++        for (auto & kv : cpca_ids_shared) {
++            const auto & pr = kv.second;
++            struct { ggml_tensor * ids_q; ggml_tensor * ids_kv; } c = { pr.first, pr.second };
+             const int64_t hq = c.ids_q->ne[0], hk = c.ids_kv->ne[0], n = c.ids_q->ne[1];
+             std::vector<int32_t> tq(hq * n), tk(hk * n);
+             for (int64_t t = 0; t < n; ++t) {
+-- 
+2.43.0
+

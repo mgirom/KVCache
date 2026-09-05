@@ -1,7 +1,7 @@
 From 249aa0db4b1b7865d7e2be7ce5826fe3f353c259 Mon Sep 17 00:00:00 2001
 From: mgirom <84082110+mgirom@users.noreply.github.com>
 Date: Fri, 4 Sep 2026 09:10:42 +0100
-Subject: [PATCH 6/8] cpca: --kv-codebook flag and context parameter; codebook
+Subject: [PATCH 6/9] cpca: --kv-codebook flag and context parameter; codebook
  bound to model identity; f16 codebooks; finite check
 
 - llama_context_params.kv_codebook (appended, default NULL) -> llama_memory_params ->

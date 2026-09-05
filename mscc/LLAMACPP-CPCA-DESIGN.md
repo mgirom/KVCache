@@ -166,7 +166,7 @@ never ask of it: matrices in f16 rather than f32, and never more slots than matr
 so the query-side matrices are expanded to one per query head at load (16 × 128 × 128
 × 2 bytes per layer). CPU was correct throughout; CUDA returned garbage until the
 expansion. The 12-item check keeps the same counts and agreement as the copy-based
-build. Speed is being measured at the standard profile.
+build. Measured at the standard profile: decode 80.9 against Hadamard's 85.2 tok/s at 1k (−5%, was −13%) and 66.2 against 68.9 at 4k (−4%, was −10%); prefill +9% and +6% (were +18% and +20%). Accuracy in that run 139/144 and 94/96 against 136/144 and 95/96, so the 4k gap read one point here against five before: part of the earlier five was item-level noise. The per-layer index tables were then made one shared pair per buffer, since sized by context they had counted as 1.8 KB per token of cache.
 
 **The 4k gap.** Hypothesis: `q4_0` sets one scale per 32 codes and the rotated
 components have very unequal spread, so the block holding the top component drowns
@@ -197,3 +197,4 @@ model's keys are not its bf16 twin's keys. The capture tool fits on the served f
 construction; the earlier 1.7B rows were measured with the HF-fitted codebook, so
 audits of the GGUF-fitted plain, fully whitened and half-whitened codebooks are queued
 to see how much of the 4k gap this alone closes.
+| Qwen3-1.7B | q4_0 fitted, fused multiply | 80.9 | 66.2 | 306 | 1257 |
