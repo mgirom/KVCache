@@ -71,6 +71,7 @@ Standard profile, one run, the same 240 items, Qwen3-1.7B GGUF:
 | cache | ctx 1k | ctx 4k | KV smaller |
 |---|---:|---:|---:|
 | f16 reference | 136/144 | 95/96 | 1.00× |
+| `f32` (twice the bytes, half the speed) | 140/144 | 95/96 | 0.50× |
 | `q8_0` | 141/144 | 95/96 | 1.80× |
 | `q4_0`, Hadamard basis (llama.cpp today) | 120/144 | 82/96 | 3.24× |
 | `q4_0`, fitted basis | 134/144 | 90/96 | 3.19× |
@@ -84,9 +85,11 @@ quantised cache type. With `q4_0` the fitted basis takes the loss from 11 points
 1.4 at 1k and from 13.5 to 5 at 4k. With `iq4_nl`, the non-linear 4-bit type that
 loses 22 points on this model in its Hadamard basis, the fitted basis lands on
 **231/240 against the reference's 231/240 at 3.6× smaller**: no measurable loss, on
-the model where every 4-bit cache had cost between 11 and 22 points. (Two runs, two
-references: the `q4_0` rows come from one run and the `q5_0`/`iq4_nl` rows from
-another, each against its own reference, which scored identically.)
+the model where every 4-bit cache had cost between 11 and 22 points. (Three runs, three
+references: the `q4_0` rows come from one run, the `q5_0`/`iq4_nl` rows from another
+and the `f32` row from a third, each against its own reference, which scored
+identically each time. The `f32` row answers a question readers ask: more precision
+than 16 bits buys nothing measurable, at twice the memory and half the speed.)
 
 **A speed caveat on the block types.** In this llama.cpp CUDA build only `q4_0` and
 `q8_0` caches have a fast flash-attention path. `q5_0` and `iq4_nl` fall back to a slow
@@ -107,6 +110,15 @@ twin; its codebook was fitted from llama.cpp's own saved cache), standard profil
 | `iq4_nl`, Hadamard basis | 143/144 | 144/144 | 3.57× |
 | `iq4_nl`, fitted basis | 143/144 | 144/144 | 3.57× |
 
+At 16k context, where the cache is the memory that matters, the same 8B (96 items; two
+tiers the reference itself fails at this length are excluded):
+
+| cache | ctx 16k | KV smaller |
+|---|---:|---:|
+| f16 reference | 93/96 | 1.00× |
+| `q4_0`, Hadamard basis | 90/96 | 3.48× |
+| **`q4_0`, fitted basis** | **94/96** | **3.38×** |
+
 Here `q4_0` was already free, as the earlier audit found for 8B-class models, and the
 fitted basis keeps it free; `iq4_nl` is free too, at 3.57×, with the kernel speed cost
 noted above.
@@ -121,8 +133,10 @@ own saved cache), standard profile, 288 items:
 | `q4_0`, Hadamard basis | 142/144 | 143/144 | 3.14× |
 | **`q4_0`, fitted basis** | **143/144** | **143/144** | **3.27×** |
 
-A 27B model, its cache under a third of f16, 286/288 against the reference's 286/288,
-on a consumer card. That is the combination this project set out to find. Its price is time: in this prototype the fitted basis
+And at 16k context on the same 27B, 144 items: reference 142/144, Hadamard `q4_0`
+143/144, fitted `q4_0` **143/144** at 3.27× smaller, decoding at 15.5 tokens per
+second. A 27B model at 16k context, its cache under a third of f16, no measurable
+loss, on a consumer card. That is the combination this project set out to find. Its price is time: in this prototype the fitted basis
 decodes 10 to 13 percent slower than the Hadamard `q4_0` on both models and prefills
 13 to 20 percent slower, the cost of a dense per-head matmul with layout copies where
 ggml's Hadamard has a fast path (numbers in the design record). Ternary weights and a 3.4× smaller cache, no measurable

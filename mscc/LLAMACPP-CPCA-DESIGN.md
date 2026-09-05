@@ -98,6 +98,7 @@ code.
 | 5c. block types with the same codebook, Qwen3-1.7B, n=240 | q5_0 Hadamard 138/144, 96/96 · q5_0 fitted 140/144, 95/96 (2.94×) · iq4_nl Hadamard 104/144, 84/96 · **iq4_nl fitted 138/144, 93/96 (3.60×): 231/240 against the reference's 231/240** |
 | 5d. Bonsai-27B (ternary Qwen3.5 hybrid, 7.6 GB, attention on 16 of 64 layers, 4 KV heads × 256), codebook from its state file, n=288 | reference 144/144, 142/144 · q4_0 Hadamard 142/144, 143/144 (3.14×) · **q4_0 fitted 143/144, 143/144 (3.27×)**: no measurable loss on the largest model this 12 GB card holds. iq4_nl not run here (kernel speed). Its `Q2_0` GGUF fails to load in this build; the `Q2_g64` file loads. The model opens answers with a blank line and an empty think block; the harness's empty-reply retry (SPEC) made it scorable. |
 | 5e. Bonsai-8B, iq4_nl, n=288 | reference 144/144, 143/144 · iq4_nl Hadamard 143/144, 144/144 · iq4_nl fitted 143/144, 144/144 (3.57×): free either way at the higher rate, at the iq4_nl kernel's speed cost |
+| 5f. 16k rung and f32 row (phase 1) | Bonsai-8B at 16k: reference 93/96 · q4_0 Hadamard 90/96 · q4_0 fitted 94/96 (3.38×). Bonsai-27B at 16k: reference 142/144 · q4_0 Hadamard 143/144 · q4_0 fitted 143/144 (3.27×, 15.5 tok/s). Qwen3-1.7B f32 cache: 140/144, 95/96 against f16 136/144, 95/96 at twice the bytes and half the speed: more precision than 16 bits buys nothing measurable. |
 
 The milestone-3 bar was "identical to the PyTorch path". It is not met literally and
 cannot be: the GGUF holds Q4_K_M weights and the HF twin bf16, so the two arms
@@ -154,6 +155,5 @@ name and geometry, refused on mismatch; f16 codebooks at 37 to 48 MB, checked fi
 load; the three codebooks published on the `codebooks` branch with a registry of
 model hashes and measured rows; `tools/kvcache.py` to pull, serve and audit; a CI
 build of the patched llama.cpp on Linux, macOS and Windows that also validates every
-filed submission; `reproduce-llamacpp.sh`, verified from a clean clone (pinned commit, seven patches, built, flag present); a documents index. CI green on all three platforms. Running: the 16k rung
-on both ternary models and the f32 row on the 1.7B. Still yours: the Pages source
+filed submission; `reproduce-llamacpp.sh`, verified from a clean clone (pinned commit, seven patches, built, flag present); a documents index. CI green on all three platforms. The 16k rung on both ternary models and the f32 row are in (5f). Still yours: the Pages source
 switch and PR #1.

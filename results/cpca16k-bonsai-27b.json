@@ -1,0 +1,390 @@
+{
+ "schema_version": "0.1.0",
+ "run_id": "541f2093dafd4ab4bbd871aa3da9e24c",
+ "utc": "2026-09-05T00:50:16Z",
+ "tool": {
+  "name": "kv-audit",
+  "version": "0.1.0",
+  "build_sha": "7d15273a3cb46dc5ac052f757729e75037ad8c41"
+ },
+ "workload": {
+  "id": "kvaudit-2026.1-draft",
+  "sha256": "3931af43284569cb049c5ecd24e19ab9427c1231dfbd75d72ab67fa74f5580df",
+  "model": {
+   "name": "Ternary-Bonsai-27B-Q2_g64.gguf",
+   "sha256": "59a45d1ecef702b14531b06d22949f33b25c1897da31a8c0b298e01e4d9138eb",
+   "n_layers": 64,
+   "n_kv_heads": 4,
+   "head_dim": 256,
+   "kv_dtype": "f16"
+  },
+  "contexts": [
+   16384
+  ],
+  "profile": "standard",
+  "reference_floor": 0.9,
+  "excluded_tiers": {
+   "t3_aggregate": {
+    "contexts": [
+     16384
+    ],
+    "reference": {
+     "16384": {
+      "hits": 0,
+      "n": 48,
+      "rate": 0.0
+     }
+    },
+    "reason": "reference arm below reference_floor at this context"
+   }
+  }
+ },
+ "system": {
+  "os": "linux",
+  "os_version": "6.17.0-1032-oem",
+  "arch": "x86_64",
+  "backend": "cuda",
+  "cpu_model": "13th Gen Intel(R) Core(TM) i9-13900",
+  "cpu_cores": 32,
+  "ram_bytes": 33339334656,
+  "gpu_model": "NVIDIA RTX A2000 12GB",
+  "gpu_vram_bytes": 12878610432,
+  "driver_version": "595.84",
+  "gpu_count": 1
+ },
+ "reference": {
+  "name": "f16",
+  "method": {
+   "family": "none",
+   "impl": "llama.cpp -ctk f16 -ctv f16"
+  },
+  "rungs": [
+   {
+    "context": 16384,
+    "ran": true,
+    "quality": {
+     "task_success": {
+      "overall": {
+       "hits": 142,
+       "n": 144,
+       "rate": 0.9861111111111112,
+       "ci95": [
+        0.9508,
+        0.9962
+       ]
+      },
+      "by_tier": {
+       "t1_retrieve": {
+        "hits": 48,
+        "n": 48,
+        "rate": 1.0,
+        "ci95": [
+         0.9259,
+         1.0
+        ]
+       },
+       "t2_link": {
+        "hits": 46,
+        "n": 48,
+        "rate": 0.9583333333333334,
+        "ci95": [
+         0.8602,
+         0.9885
+        ]
+       },
+       "t4_distractor": {
+        "hits": 48,
+        "n": 48,
+        "rate": 1.0,
+        "ci95": [
+         0.9259,
+         1.0
+        ]
+       }
+      },
+      "by_depth": {
+       "10": {
+        "hits": 48,
+        "n": 48,
+        "rate": 1.0,
+        "ci95": [
+         0.9259,
+         1.0
+        ]
+       },
+       "50": {
+        "hits": 47,
+        "n": 48,
+        "rate": 0.9791666666666666,
+        "ci95": [
+         0.891,
+         0.9963
+        ]
+       },
+       "90": {
+        "hits": 47,
+        "n": 48,
+        "rate": 0.9791666666666666,
+        "ci95": [
+         0.891,
+         0.9963
+        ]
+       }
+      }
+     },
+     "_doc_tokens_mean": 16400.9,
+     "_truncated_misses": {
+      "hits": 0,
+      "n": 192,
+      "rate": 0.0,
+      "ci95": [
+       0.0,
+       0.0196
+      ]
+     }
+    },
+    "cost": {
+     "kv_bytes_per_token_measured": 66560.0,
+     "prefill_ms": 61156.12,
+     "decode_tok_per_s": 15.9,
+     "peak_vram_bytes": 8774483968,
+     "repeats": 1
+    }
+   }
+  ]
+ },
+ "arms": [
+  {
+   "name": "q4_0",
+   "method": {
+    "family": "q4_0",
+    "impl": "llama.cpp -ctk q4_0 -ctv q4_0"
+   },
+   "rungs": [
+    {
+     "context": 16384,
+     "ran": true,
+     "quality": {
+      "task_success": {
+       "overall": {
+        "hits": 143,
+        "n": 144,
+        "rate": 0.9930555555555556,
+        "ci95": [
+         0.9617,
+         0.9988
+        ]
+       },
+       "by_tier": {
+        "t1_retrieve": {
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0,
+         "ci95": [
+          0.9259,
+          1.0
+         ]
+        },
+        "t2_link": {
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0,
+         "ci95": [
+          0.9259,
+          1.0
+         ]
+        },
+        "t4_distractor": {
+         "hits": 47,
+         "n": 48,
+         "rate": 0.9791666666666666,
+         "ci95": [
+          0.891,
+          0.9963
+         ]
+        }
+       },
+       "by_depth": {
+        "10": {
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0,
+         "ci95": [
+          0.9259,
+          1.0
+         ]
+        },
+        "50": {
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0,
+         "ci95": [
+          0.9259,
+          1.0
+         ]
+        },
+        "90": {
+         "hits": 47,
+         "n": 48,
+         "rate": 0.9791666666666666,
+         "ci95": [
+          0.891,
+          0.9963
+         ]
+        }
+       }
+      },
+      "_doc_tokens_mean": 16380.1,
+      "_truncated_misses": {
+       "hits": 0,
+       "n": 144,
+       "rate": 0.0,
+       "ci95": [
+        0.0,
+        0.026
+       ]
+      }
+     },
+     "cost": {
+      "kv_bytes_per_token_measured": 21211.428571428572,
+      "prefill_ms": 53802.44,
+      "decode_tok_per_s": 15.01,
+      "peak_vram_bytes": 8004829184,
+      "repeats": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "q4_0+cpca",
+   "method": {
+    "family": "q4_0+cpca",
+    "impl": "llama.cpp -ctk q4_0 -ctv q4_0 LLAMA_KV_CODEBOOK=bonsai-27b_pca256q4_0.cpca.gguf"
+   },
+   "rungs": [
+    {
+     "context": 16384,
+     "ran": true,
+     "quality": {
+      "task_success": {
+       "overall": {
+        "hits": 143,
+        "n": 144,
+        "rate": 0.9930555555555556,
+        "ci95": [
+         0.9617,
+         0.9988
+        ]
+       },
+       "by_tier": {
+        "t1_retrieve": {
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0,
+         "ci95": [
+          0.9259,
+          1.0
+         ]
+        },
+        "t2_link": {
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0,
+         "ci95": [
+          0.9259,
+          1.0
+         ]
+        },
+        "t4_distractor": {
+         "hits": 47,
+         "n": 48,
+         "rate": 0.9791666666666666,
+         "ci95": [
+          0.891,
+          0.9963
+         ]
+        }
+       },
+       "by_depth": {
+        "10": {
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0,
+         "ci95": [
+          0.9259,
+          1.0
+         ]
+        },
+        "50": {
+         "hits": 48,
+         "n": 48,
+         "rate": 1.0,
+         "ci95": [
+          0.9259,
+          1.0
+         ]
+        },
+        "90": {
+         "hits": 47,
+         "n": 48,
+         "rate": 0.9791666666666666,
+         "ci95": [
+          0.891,
+          0.9963
+         ]
+        }
+       }
+      },
+      "_doc_tokens_mean": 16380.1,
+      "_truncated_misses": {
+       "hits": 0,
+       "n": 144,
+       "rate": 0.0,
+       "ci95": [
+        0.0,
+        0.026
+       ]
+      }
+     },
+     "cost": {
+      "kv_bytes_per_token_measured": 20333.714285714286,
+      "prefill_ms": 50667.04,
+      "decode_tok_per_s": 15.52,
+      "peak_vram_bytes": 8095006720,
+      "repeats": 1
+     }
+    }
+   ]
+  }
+ ],
+ "_capability": {
+  "backend": "cuda",
+  "os": "linux",
+  "arch": "x86_64",
+  "cpu_cores": 32,
+  "host_total_bytes": 33339334656,
+  "host_free_bytes": 23580237824,
+  "device_free_bytes": 12107907072,
+  "device_total_bytes": 12878610432
+ },
+ "_kv_measurement": {
+  "f16": {
+   "measured_in": "vram",
+   "small": 2048,
+   "large": 16384
+  },
+  "q4_0": {
+   "measured_in": "vram",
+   "small": 2048,
+   "large": 16384
+  },
+  "q4_0+cpca": {
+   "measured_in": "vram",
+   "small": 2048,
+   "large": 16384
+  }
+ },
+ "integrity": {
+  "result_hash": "873b237b3a9116173dc79cc01de4b4e42302582c8f80eb077bb3fd6afa94f85e"
+ }
+}
