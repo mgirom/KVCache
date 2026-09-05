@@ -39,6 +39,9 @@ w = gguf.GGUFWriter(a.out, arch="cpca")
 w.add_string("cpca.source_codebook", os.path.basename(a.codebook))
 w.add_string("cpca.codebook_sha", cb.sha() if hasattr(cb, "sha") else "")
 w.add_string("cpca.quant", m["quant"]); w.add_bool("cpca.whiten", bool(m.get("whiten", False)))
+# where the states came from: the served file's own cache (capture_gguf_kv) or HF weights (kvfit).
+# A Q4_K_M model's keys are not its bf16 twin's; a codebook fitted on the served file fits better.
+w.add_string("cpca.fit_source", str(m.get("captured_from", "huggingface weights (kvfit)")))
 w.add_uint32("cpca.n_head", a.n_head)
 if not a.model_gguf: w.add_uint32("cpca.n_layer", n_layers)
 for key in ("model", "corpus_sha256", "n_states"):

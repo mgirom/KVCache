@@ -32,7 +32,8 @@
     "results/cpca-qwen3-1.7b.json",
     "results/cpca-types-qwen3-1.7b.json"
    ],
-   "note": "obtain the model file from its publisher; the sha256 identifies the exact file these rows were measured on"
+   "note": "obtain the model file from its publisher; the sha256 identifies the exact file these rows were measured on",
+   "fit_source": "HF bf16 weights (kvfit); a GGUF-state fit is being audited"
   },
   {
    "id": "bonsai-8b",
@@ -61,7 +62,8 @@
     "results/cpca-bonsai-8b.json",
     "results/cpca-iq4-bonsai-8b.json"
    ],
-   "note": "obtain the model file from its publisher; the sha256 identifies the exact file these rows were measured on"
+   "note": "obtain the model file from its publisher; the sha256 identifies the exact file these rows were measured on",
+   "fit_source": "llama.cpp state file of this GGUF (capture_gguf_kv)"
   },
   {
    "id": "bonsai-27b",
@@ -88,7 +90,8 @@
    "results": [
     "results/cpca-bonsai-27b.json"
    ],
-   "note": "obtain the model file from its publisher; the sha256 identifies the exact file these rows were measured on"
+   "note": "obtain the model file from its publisher; the sha256 identifies the exact file these rows were measured on",
+   "fit_source": "llama.cpp state file of this GGUF (capture_gguf_kv)"
   }
  ]
 }
