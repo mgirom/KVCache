@@ -186,3 +186,14 @@ Values improve slightly; the four sink rows get 10 to 50% worse, since whitening
 amplifies their small components. Partial whitening (a power of the spread below one)
 is the obvious middle if the sink rows turn out to matter. Emulated quick audit and the
 llama.cpp standard audit of the whitened codebook are queued.
+
+**Fit on the states of the file you serve.** Removing a confound in the table above
+changed its meaning. The "plain" codebook was fitted on the bf16 HuggingFace weights'
+states; the whitened ones on the GGUF model's own saved cache. A plain codebook fitted
+on the GGUF states scores 0.046 at layer 7 against the HF-fitted one's 0.101, and 0.050
+against 0.081 at layer 27: most of the gain was the fit data, not the whitening, which
+adds a further 5 to 8 percent on top (half-power slightly better than full). A Q4_K_M
+model's keys are not its bf16 twin's keys. The capture tool fits on the served file by
+construction; the earlier 1.7B rows were measured with the HF-fitted codebook, so
+audits of the GGUF-fitted plain, fully whitened and half-whitened codebooks are queued
+to see how much of the 4k gap this alone closes.
