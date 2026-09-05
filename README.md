@@ -74,7 +74,8 @@ Standard profile, one run, the same 240 items, Qwen3-1.7B GGUF:
 | `f32` (twice the bytes, half the speed) | 140/144 | 95/96 | 0.50× |
 | `q8_0` | 141/144 | 95/96 | 1.80× |
 | `q4_0`, Hadamard basis (llama.cpp today) | 120/144 | 82/96 | 3.24× |
-| `q4_0`, fitted basis | 134/144 | 90/96 | 3.19× |
+| `q4_0`, fitted basis (codebook fitted on HF bf16 states) | 134/144 | 90/96 | 3.19× |
+| **`q4_0`, fitted basis (fitted on this GGUF's own states, whitened)** | **134/144** | **96/96** | **3.23×** |
 | `q5_0`, Hadamard basis | 138/144 | 96/96 | 2.94× |
 | `q5_0`, fitted basis | 140/144 | 95/96 | 2.94× |
 | `iq4_nl`, Hadamard basis | 104/144 | 84/96 | 3.60× |
@@ -82,7 +83,9 @@ Standard profile, one run, the same 240 items, Qwen3-1.7B GGUF:
 
 The rotation does not depend on the block type, so one codebook drives every
 quantised cache type. With `q4_0` the fitted basis takes the loss from 11 points to
-1.4 at 1k and from 13.5 to 5 at 4k. With `iq4_nl`, the non-linear 4-bit type that
+1.4 at 1k, and at 4k from 13.5 points to 5 with a codebook fitted on the model's bf16
+HuggingFace states, to none with one fitted on the served GGUF's own cache and
+whitened: a Q4_K_M model's keys are not its bf16 twin's, so fit on the file you serve. With `iq4_nl`, the non-linear 4-bit type that
 loses 22 points on this model in its Hadamard basis, the fitted basis lands on
 **231/240 against the reference's 231/240 at 3.6× smaller**: no measurable loss, on
 the model where every 4-bit cache had cost between 11 and 22 points. (Three runs, three
