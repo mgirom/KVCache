@@ -136,10 +136,10 @@ own saved cache), standard profile, 288 items:
 And at 16k context on the same 27B, 144 items: reference 142/144, Hadamard `q4_0`
 143/144, fitted `q4_0` **143/144** at 3.27× smaller, decoding at 15.5 tokens per
 second. A 27B model at 16k context, its cache under a third of f16, no measurable
-loss, on a consumer card. That is the combination this project set out to find. Its price is time: in this prototype the fitted basis
-decodes 10 to 13 percent slower than the Hadamard `q4_0` on both models and prefills
-13 to 20 percent slower, the cost of a dense per-head matmul with layout copies where
-ggml's Hadamard has a fast path (numbers in the design record). Ternary weights and a 3.4× smaller cache, no measurable
+loss, on a consumer card. That is the combination this project set out to find. Its price is time, now small: with the per-head multiply as one fused operator, the
+fitted basis decodes 4 to 5 percent slower than the Hadamard `q4_0` and prefills 6 to 9
+percent slower on the 1.7B, down from 10 to 13 and 13 to 20 with the first
+implementation (numbers in the design record). Ternary weights and a 3.4× smaller cache, no measurable
 loss, on a 12 GB card: that is the combination the project set out to find, at the
 8B scale. Result files: [`results/cpca-qwen3-1.7b.json`](results/cpca-qwen3-1.7b.json),
 [`results/cpca-bonsai-8b.json`](results/cpca-bonsai-8b.json),
