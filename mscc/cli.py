@@ -251,7 +251,7 @@ def cmd_kvfit(a):
             if not a.per_head or a.codes % 32 or a.codes <= 0:
                 raise SystemExit(f"--quant {a.quant} needs --per-head and --codes as a multiple of 32")
             from mscc.codec import GGML_BLOCK_BYTES
-            meta["quant"], meta["codes_per_head"] = a.quant, int(a.codes)
+            meta["quant"], meta["codes_per_head"], meta["whiten"] = a.quant, int(a.codes), bool(a.whiten)
             # bits per head per unit at this block type -- the auditor's arm name carries
             # unit_bits = kv_heads x bits_per_head, as it does for cpca codebooks
             meta["bits_per_head"] = int(a.codes * GGML_BLOCK_BYTES[a.quant] * 8 // 32)
@@ -259,7 +259,7 @@ def cmd_kvfit(a):
         books = lkv.fit_kv_codebooks_perhead(
             {k: v.float() for k, v in states.items()},
             a.unit_bits // kv_heads, int(kv_heads), int(head_dim),
-            quant=a.quant, codes=a.codes,
+            quant=a.quant, codes=a.codes, whiten=a.whiten,
             progress=lambda i, n, key: (i % 14 == 0 and
                                         print(f"  fitted {i+1}/{n} units", flush=True)))
         states.clear()
@@ -519,6 +519,9 @@ def main(argv=None):
                          "Needs --per-head.")
     kf.add_argument("--codes", type=int, default=0,
                     help="q8_0 only: PCA components kept per head (multiple of 32)")
+    kf.add_argument("--whiten", action="store_true",
+                    help="block quantisers: scale each code component to unit spread so one block "
+                         "scale fits all of them; the exporter folds the inverse into the query")
     kf.add_argument("--per-head", action="store_true",
                     help="fit one basis per attention head instead of one across all "
                          "of them, at the same total rate. Compresses worse; required "

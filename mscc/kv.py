@@ -119,7 +119,8 @@ class KVCodebook:
                 l, u = tag.split(".")
                 books[(int(l), u)] = Codebook(
                     mu=z[f"{tag}:mu"], s=z[f"{tag}:s"], V=z[f"{tag}:V"],
-                    b=z[f"{tag}:b"], lo=z[f"{tag}:lo"], hi=z[f"{tag}:hi"], meta=m)
+                    b=z[f"{tag}:b"], lo=z[f"{tag}:lo"], hi=z[f"{tag}:hi"], meta=m,
+                    zs=z[f"{tag}:zs"] if f"{tag}:zs" in z.files else None)
         return KVCodebook(books=books, meta=blob["meta"])
 
 

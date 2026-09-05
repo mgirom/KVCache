@@ -1,0 +1,224 @@
+From e250169eb23e2d59bfa5e6e7f87893206a7288a1 Mon Sep 17 00:00:00 2001
+From: mgirom <84082110+mgirom@users.noreply.github.com>
+Date: Sat, 5 Sep 2026 04:15:24 +0100
+Subject: [PATCH 8/8] cpca: per-head multiply as one ggml_mul_mat_id, no layout
+ copies; matrices f16 on device; query-side matrices per query head
+
+The permute-and-copy helper is replaced by the expert operator with constant index
+tables. The CUDA path of that operator is exercised by mixture models only with at
+most as many slots as matrices, and returned garbage for 16 query heads over 8 kv
+matrices while the CPU path was correct; the query-side matrices are therefore
+expanded to one per query head at load (trivial memory) and the table is the
+identity. The permute helper remains for reference.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+---
+ src/llama-graph.cpp    |  8 +++---
+ src/llama-impl.h       | 32 +++++++++++++++++++++++
+ src/llama-kv-cache.cpp | 58 ++++++++++++++++++++++++++++++++++--------
+ src/llama-kv-cache.h   |  5 ++++
+ 4 files changed, 88 insertions(+), 15 deletions(-)
+
+diff --git a/src/llama-graph.cpp b/src/llama-graph.cpp
+index afce643..98dfb4a 100644
+--- a/src/llama-graph.cpp
++++ b/src/llama-graph.cpp
+@@ -2802,9 +2802,9 @@ ggml_tensor * llm_graph_context::build_attn(
+     if (cpca) {
+         // fitted rotation with scale and mean in place of the Hadamard; the key-side
+         // mean shifts every logit of a query by the same amount, so softmax is unchanged
+-        q_cur = llama_mul_mat_perhead(ctx0, q_cur, cpca->q_rot, nullptr);
+-        k_cur = llama_mul_mat_perhead(ctx0, k_cur, cpca->k_rot, cpca->k_bias);
+-        v_cur = llama_mul_mat_perhead(ctx0, v_cur, cpca->v_rot, cpca->v_bias);
++        q_cur = llama_mul_mat_perhead_id(ctx0, q_cur, cpca->q_rot, cpca->ids_q,  nullptr);
++        k_cur = llama_mul_mat_perhead_id(ctx0, k_cur, cpca->k_rot, cpca->ids_kv, cpca->k_bias);
++        v_cur = llama_mul_mat_perhead_id(ctx0, v_cur, cpca->v_rot, cpca->ids_kv, cpca->v_bias);
+     } else {
+         if (inp->self_k_rot) {
+             q_cur = llama_mul_mat_hadamard(ctx0, q_cur, inp->self_k_rot);
+@@ -2845,7 +2845,7 @@ ggml_tensor * llm_graph_context::build_attn(
+ 
+     if (cpca) {
+         // softmax weights sum to one, so the stored mean comes back exactly
+-        cur = llama_mul_mat_perhead(ctx0, cur, cpca->v_unrot, cpca->v_mean);
++        cur = llama_mul_mat_perhead_id(ctx0, cur, cpca->v_unrot, cpca->ids_q, cpca->v_mean);
+     } else if (inp->self_v_rot) {
+         cur = llama_mul_mat_hadamard(ctx0, cur, inp->self_v_rot);
+     }
+diff --git a/src/llama-impl.h b/src/llama-impl.h
+index 996efdb..3c33d46 100644
+--- a/src/llama-impl.h
++++ b/src/llama-impl.h
+@@ -106,6 +106,38 @@ static inline ggml_tensor * llama_mul_mat_perhead(
+     return ggml_reshape_3d(ctx, y, d, nh, n_tokens);
+ }
+ 
++// cpca, fast path: the per-head multiply as one ggml_mul_mat_id. rot is [d, d, H];
++// ids_all is a constant [n_rows, kv_size] table whose first n_tokens columns are taken
++// as a view; cur is [d, n_rows, n_tokens] or the flattened [d*n_rows, n_tokens]. No
++// permutes, no copies: the operator selects the matrix per row from the table.
++static inline ggml_tensor * llama_mul_mat_perhead_id(
++        ggml_context * ctx,
++        ggml_tensor * cur,
++        ggml_tensor * rot,
++        ggml_tensor * ids_all,
++        ggml_tensor * bias) {
++    const int64_t d = rot->ne[0];
++    const bool per_head_layout = cur->ne[0] == d;
++    const int64_t nh       = per_head_layout ? cur->ne[1] : cur->ne[0] / d;
++    const int64_t n_tokens = per_head_layout ? cur->ne[2] : cur->ne[1];
++    GGML_ASSERT(ids_all->ne[0] == nh && ids_all->ne[1] >= n_tokens);
++    ggml_tensor * x = cur;
++    if (!ggml_is_contiguous(x)) {
++        x = ggml_cont(ctx, x);
++    }
++    x = ggml_reshape_3d(ctx, x, d, nh, n_tokens);
++    ggml_tensor * ids = ggml_view_2d(ctx, ids_all, nh, n_tokens, ids_all->nb[1], 0);
++    ggml_tensor * y = ggml_mul_mat_id(ctx, rot, x, ids);                 // [d, nh, n_tokens]
++    if (bias) {
++        GGML_ASSERT(nh % bias->ne[1] == 0);
++        y = ggml_add(ctx, y, bias);
++    }
++    if (!per_head_layout) {
++        return ggml_reshape_2d(ctx, y, d*nh, n_tokens);
++    }
++    return y;
++}
++
+ struct time_meas {
+     time_meas(int64_t & t_acc, bool disable = false);
+     ~time_meas();
+diff --git a/src/llama-kv-cache.cpp b/src/llama-kv-cache.cpp
+index 307b8fb..a94ebc8 100644
+--- a/src/llama-kv-cache.cpp
++++ b/src/llama-kv-cache.cpp
+@@ -172,7 +172,7 @@ llama_kv_cache::llama_kv_cache(
+         auto it = cpca_ctx_map.find(buft);
+         if (it == cpca_ctx_map.end()) {
+             ggml_init_params params = {
+-                /*.mem_size   =*/ size_t(9)*size_t(hparams.n_layer())*ggml_tensor_overhead(),
++                /*.mem_size   =*/ size_t(11)*size_t(hparams.n_layer())*ggml_tensor_overhead(),
+                 /*.mem_buffer =*/ NULL,
+                 /*.no_alloc   =*/ true,
+             };
+@@ -330,12 +330,15 @@ llama_kv_cache::llama_kv_cache(
+             const int64_t hq = hparams.n_head(il);
+             GGML_ASSERT(hparams.n_embd_head_v(il) == d && "cpca: K and V head dims must match");
+             auto & c = cpca_layers[il];
+-            auto mk3 = [&](const char * nm) { auto * t = ggml_new_tensor_3d(cctx, GGML_TYPE_F32, d, d, hk); ggml_format_name(t, "cpca_%s_l%d", nm, il); return t; };
++            auto mk3 = [&](const char * nm) { auto * t = ggml_new_tensor_3d(cctx, GGML_TYPE_F16, d, d, hk); ggml_format_name(t, "cpca_%s_l%d", nm, il); return t; };
+             auto mk2 = [&](const char * nm, int64_t h) { auto * t = ggml_new_tensor_2d(cctx, GGML_TYPE_F32, d, h); ggml_format_name(t, "cpca_%s_l%d", nm, il); return t; };
+-            c.q_rot = mk3("q_rot");  c.k_rot = mk3("k_rot");  c.k_unrot = mk3("k_unrot");
+-            c.v_rot = mk3("v_rot");  c.v_unrot = mk3("v_unrot");
++            auto mk3q = [&](const char * nm) { auto * t = ggml_new_tensor_3d(cctx, GGML_TYPE_F16, d, d, hq); ggml_format_name(t, "cpca_%s_l%d", nm, il); return t; };
++            c.q_rot = mk3q("q_rot"); c.k_rot = mk3("k_rot");  c.k_unrot = mk3("k_unrot");
++            c.v_rot = mk3("v_rot");  c.v_unrot = mk3q("v_unrot");
+             c.k_bias = mk2("k_bias", hk); c.k_mean = mk2("k_mean", hk);
+             c.v_bias = mk2("v_bias", hk); c.v_mean = mk2("v_mean", hq);
++            c.ids_q  = ggml_new_tensor_2d(cctx, GGML_TYPE_I32, hq, kv_size); ggml_format_name(c.ids_q,  "cpca_ids_q_l%d",  il);
++            c.ids_kv = ggml_new_tensor_2d(cctx, GGML_TYPE_I32, hk, kv_size); ggml_format_name(c.ids_kv, "cpca_ids_kv_l%d", il);
+         }
+ 
+         map_layer_ids[il] = layers.size();
+@@ -416,26 +419,59 @@ llama_kv_cache::llama_kv_cache(
+                 if (!src) {
+                     throw std::runtime_error(std::string("cpca codebook is missing tensor ") + name);
+                 }
+-                if (ggml_nelements(src) != ggml_nelements(dst) || src->ne[0] != dst->ne[0] || src->ne[1] != dst->ne[1]) {
++                const bool q_side = (dst == c.q_rot || dst == c.v_unrot);           // stored per kv head, used per query head
++                const int64_t rep = q_side ? dst->ne[2] / src->ne[2] : 1;
++                if (src->ne[0] != dst->ne[0] || src->ne[1] != dst->ne[1] || src->ne[2] * rep != dst->ne[2] || rep < 1) {
+                     throw std::runtime_error(std::string("cpca codebook tensor has the wrong shape for this model: ") + name);
+                 }
+-                std::vector<float> host(ggml_nelements(dst));
++                std::vector<float> one(ggml_nelements(src));
+                 if (src->type == GGML_TYPE_F32) {
+-                    memcpy(host.data(), src->data, ggml_nbytes(dst));
++                    memcpy(one.data(), src->data, ggml_nbytes(src));
+                 } else if (src->type == GGML_TYPE_F16) {
+-                    ggml_fp16_to_fp32_row((const ggml_fp16_t *) src->data, host.data(), ggml_nelements(dst));
++                    ggml_fp16_to_fp32_row((const ggml_fp16_t *) src->data, one.data(), ggml_nelements(src));
+                 } else {
+                     throw std::runtime_error(std::string("cpca codebook tensor must be f32 or f16: ") + name);
+                 }
++                std::vector<float> host(ggml_nelements(dst));
++                if (rep == 1) {
++                    host = one;
++                } else {
++                    // matrix for query head h is the matrix of kv head h / rep
++                    const size_t per = (size_t) src->ne[0] * src->ne[1];
++                    for (int64_t h = 0; h < dst->ne[2]; ++h) {
++                        memcpy(host.data() + h*per, one.data() + (h / rep)*per, per * sizeof(float));
++                    }
++                }
+                 for (float v : host) {
+                     if (!std::isfinite(v)) {
+                         throw std::runtime_error(std::string("cpca codebook tensor has a non-finite value: ") + name);
+                     }
+                 }
+-                ggml_backend_tensor_set(dst, host.data(), 0, ggml_nbytes(dst));
++                if (dst->type == GGML_TYPE_F16) {
++                    std::vector<ggml_fp16_t> h16(host.size());
++                    ggml_fp32_to_fp16_row(host.data(), h16.data(), host.size());
++                    ggml_backend_tensor_set(dst, h16.data(), 0, ggml_nbytes(dst));
++                } else {
++                    ggml_backend_tensor_set(dst, host.data(), 0, ggml_nbytes(dst));
++                }
+                 ++n_set;
+             }
+         }
++        // the index tables: constant, per layer
++        for (uint32_t il = 0; il < hparams.n_layer(); ++il) {
++            if (map_layer_ids.find(il) == map_layer_ids.end() || !cpca_layers[il].ids_q) {
++                continue;
++            }
++            auto & c = cpca_layers[il];
++            const int64_t hq = c.ids_q->ne[0], hk = c.ids_kv->ne[0], n = c.ids_q->ne[1];
++            std::vector<int32_t> tq(hq * n), tk(hk * n);
++            for (int64_t t = 0; t < n; ++t) {
++                for (int64_t h = 0; h < hq; ++h) tq[t*hq + h] = (int32_t) h;      // q-side matrices are per query head
++                for (int64_t h = 0; h < hk; ++h) tk[t*hk + h] = (int32_t) h;
++            }
++            ggml_backend_tensor_set(c.ids_q,  tq.data(), 0, ggml_nbytes(c.ids_q));
++            ggml_backend_tensor_set(c.ids_kv, tk.data(), 0, ggml_nbytes(c.ids_kv));
++        }
+         gguf_free(cpca_gguf);
+         ggml_free(cpca_host);
+         cpca_gguf = nullptr; cpca_host = nullptr;
+@@ -2028,7 +2064,7 @@ ggml_tensor * llama_kv_cache::build_rope_shift(
+         const auto * cpca = get_cpca(il);
+ 
+         // rotate back
+-        tmp = cpca ? llama_mul_mat_perhead(ctx, tmp, cpca->k_unrot, cpca->k_mean)
++        tmp = cpca ? llama_mul_mat_perhead_id(ctx, tmp, cpca->k_unrot, cpca->ids_kv, cpca->k_mean)
+                    : llama_mul_mat_hadamard(ctx, tmp, rot);
+ 
+         tmp = ggml_rope_ext(ctx, tmp,
+@@ -2036,7 +2072,7 @@ ggml_tensor * llama_kv_cache::build_rope_shift(
+                 yarn_ext_factor, yarn_attn_factor, yarn_beta_fast, yarn_beta_slow);
+ 
+         // rotate fwd
+-        tmp = cpca ? llama_mul_mat_perhead(ctx, tmp, cpca->k_rot, cpca->k_bias)
++        tmp = cpca ? llama_mul_mat_perhead_id(ctx, tmp, cpca->k_rot, cpca->ids_kv, cpca->k_bias)
+                    : llama_mul_mat_hadamard(ctx, tmp, rot);
+ 
+         tmp = ggml_cpy(ctx, tmp, cur);
+diff --git a/src/llama-kv-cache.h b/src/llama-kv-cache.h
+index 22422d6..58deedd 100644
+--- a/src/llama-kv-cache.h
++++ b/src/llama-kv-cache.h
+@@ -128,6 +128,11 @@ public:
+         ggml_tensor * v_bias  = nullptr;
+         ggml_tensor * v_unrot = nullptr;
+         ggml_tensor * v_mean  = nullptr; // [d, n_head]         mu_v, pre-expanded to query heads
++        // constant index tables for ggml_mul_mat_id: which per-head matrix each row uses.
++        // [n_head, kv_size] with ids[t][h] = h / groups (query heads), [n_head_kv, kv_size]
++        // with ids[t][h] = h (K and V). A graph takes a view of the first n_tokens columns.
++        ggml_tensor * ids_q   = nullptr;
++        ggml_tensor * ids_kv  = nullptr;
+     };
+ 
+     const cpca_layer * get_cpca(int32_t il) const;
+-- 
+2.43.0
+

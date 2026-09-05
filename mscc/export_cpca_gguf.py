@@ -38,17 +38,18 @@ assert a.n_head % H == 0
 w = gguf.GGUFWriter(a.out, arch="cpca")
 w.add_string("cpca.source_codebook", os.path.basename(a.codebook))
 w.add_string("cpca.codebook_sha", cb.sha() if hasattr(cb, "sha") else "")
-w.add_string("cpca.quant", m["quant"])
-w.add_uint32("cpca.n_layer", n_layers); w.add_uint32("cpca.n_head_kv", H)
-w.add_uint32("cpca.n_head", a.n_head); w.add_uint32("cpca.head_dim", d)
+w.add_string("cpca.quant", m["quant"]); w.add_bool("cpca.whiten", bool(m.get("whiten", False)))
+w.add_uint32("cpca.n_head", a.n_head)
+if not a.model_gguf: w.add_uint32("cpca.n_layer", n_layers)
 for key in ("model", "corpus_sha256", "n_states"):
     if key in m: w.add_string(f"cpca.{key}", str(m[key]))
+w.add_uint32("cpca.n_head_kv", H); w.add_uint32("cpca.head_dim", d)
 if a.model_gguf:
     from mscc.ggufmeta import gguf_metadata, model_geometry
     kv = gguf_metadata(a.model_gguf); g = model_geometry(a.model_gguf)
     assert g["n_head_kv"] == H and g["head_dim"] == d and g["n_head"] == a.n_head, ("model/codebook geometry mismatch", g, H, d, a.n_head)
     w.add_string("cpca.model_arch", g["arch"]); w.add_string("cpca.model_name", kv.get("general.name", ""))
-    w.add_uint32("cpca.n_layer", g["n_layer"]); w.add_uint32("cpca.n_head_kv", H); w.add_uint32("cpca.head_dim", d)
+    w.add_uint32("cpca.n_layer", g["n_layer"])
     w.add_string("cpca.model_file", os.path.basename(a.model_gguf))
     print(f"bound to {g['arch']} '{kv.get('general.name', '')}' {g['n_layer']}L x {H}kv x {d}d")
 dtype = np.float16 if a.fp16 else np.float32
@@ -59,11 +60,14 @@ def stack(unit, fn):
 for l in range(n_layers):
     if (l, "k0") not in cb.books:
         continue
-    def rot(b, inv):        # V^T diag(1/s) (write) or V^T diag(s) (query)
+    def zs(b):              # per-component code scale (whitening); ones when absent
+        return np.ones(b.V.shape[1]) if b.zs is None else b.zs.reshape(-1).astype(np.float64)
+    def rot(b, inv):        # write: diag(1/zs) V^T diag(1/s)   query: diag(zs) V^T diag(s)
         V, s = b.V.astype(np.float64), b.s.reshape(-1).astype(np.float64)
-        return (V.T * (1.0 / s if inv else s)[None, :])
-    def unrot(b):           # diag(s) V
-        return b.V.astype(np.float64) * b.s.reshape(-1).astype(np.float64)[:, None]
+        M = V.T * (1.0 / s if inv else s)[None, :]
+        return M * ((1.0 / zs(b)) if inv else zs(b))[:, None]
+    def unrot(b):           # diag(s) V diag(zs)
+        return (b.V.astype(np.float64) * b.s.reshape(-1).astype(np.float64)[:, None]) * zs(b)[None, :]
     q_rot  = np.stack([rot(cb.books[(l, f"k{h}")], inv=False) for h in range(H)])
     k_rot  = np.stack([rot(cb.books[(l, f"k{h}")], inv=True)  for h in range(H)])
     k_mean = np.stack([cb.books[(l, f"k{h}")].mu.reshape(-1) for h in range(H)]).astype(np.float64)
@@ -86,6 +90,7 @@ import torch
 l0 = 14 if (14, "k0") in cb.books else min(l for l, _ in cb.books)
 b = cb.books[(l0, "k0")]
 x = torch.randn(7, d); z = ((x - torch.as_tensor(b.mu)) / torch.as_tensor(b.s).reshape(-1)) @ torch.as_tensor(b.V)
+if b.zs is not None: z = z / torch.as_tensor(b.zs).reshape(-1)
 kr = np.stack([rot(cb.books[(l0, f"k{h}")], inv=True) for h in range(H)])[0]
 kb = -(kr @ cb.books[(l0, "k0")].mu.reshape(-1).astype(np.float64))
 z2 = x.numpy() @ kr.T + kb

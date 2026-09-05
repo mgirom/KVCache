@@ -86,6 +86,8 @@ class Codebook:
     lo: np.ndarray        # [k]
     hi: np.ndarray        # [k]
     meta: dict[str, Any]
+    zs: np.ndarray | None = None   # [k] optional per-component scale of the codes (whitening
+                                   # for block quantisers: stored codes are Z / zs)
 
     # -- properties the guard reads
     @property
@@ -105,8 +107,11 @@ class Codebook:
     def hidden_dim(self) -> int: return int(self.V.shape[0])
 
     def arrays(self) -> dict[str, np.ndarray]:
-        return {"mu": self.mu, "s": self.s, "V": self.V,
-                "b": self.b, "lo": self.lo, "hi": self.hi}
+        out = {"mu": self.mu, "s": self.s, "V": self.V,
+               "b": self.b, "lo": self.lo, "hi": self.hi}
+        if self.zs is not None:
+            out["zs"] = self.zs
+        return out
 
     def sha(self) -> str:
         return codebook_fingerprint(self.arrays(), self.meta)
@@ -121,6 +126,8 @@ class Codebook:
         dev = states.device
         X = states.reshape(-1, states.shape[-1]).float()
         Z = ((X - self._t(self.mu, dev)) / self._t(self.s, dev)) @ self._t(self.V, dev)
+        if self.zs is not None:
+            Z = Z / self._t(self.zs, dev)                    # whitened codes: equal footing per block
         if self.quant == "q8_0":
             return q8_0_quantize(Z)
         if self.quant == "q4_0":
@@ -141,6 +148,8 @@ class Codebook:
             lo, hi = self._t(self.lo, dev), self._t(self.hi, dev)
             lev = (2.0 ** self._t(self.b, dev) - 1).clamp(min=1)
             Zq = lo + q / lev * (hi - lo)
+        if self.zs is not None:
+            Zq = Zq * self._t(self.zs, dev)
         X = (Zq @ self._t(self.V, dev).T) * self._t(self.s, dev) + self._t(self.mu, dev)
         return X.reshape(shape) if shape is not None else X
 
@@ -157,7 +166,8 @@ class Codebook:
         with np.load(path) as z:
             meta = json.loads(bytes(z["_meta"]).decode())
             return Codebook(mu=z["mu"], s=z["s"], V=z["V"], b=z["b"],
-                            lo=z["lo"], hi=z["hi"], meta=meta)
+                            lo=z["lo"], hi=z["hi"], meta=meta,
+                            zs=z["zs"] if "zs" in z.files else None)
 
 
 def mse_clip(Z: torch.Tensor, b: torch.Tensor, *, fallback: tuple | None = None,
@@ -325,7 +335,7 @@ def q8_0_dequantize(q: torch.Tensor, d: torch.Tensor) -> torch.Tensor:
 
 
 def fit_fixed(states: torch.Tensor, dims: int, k: int, *, quant: str = "q8_0",
-              meta: dict[str, Any] | None = None, seed: int = 0) -> Codebook:
+              meta: dict[str, Any] | None = None, seed: int = 0, whiten: bool = False) -> Codebook:
     """The llama.cpp live-path codebook: the same standardise+PCA as fit(), truncated
     to a FIXED k components, each stored as ggml q8_0. No bit allocation, no clipping:
     the block scale adapts per token. k must be a multiple of 32 (a q8_0 block)."""
@@ -341,17 +351,24 @@ def fit_fixed(states: torch.Tensor, dims: int, k: int, *, quant: str = "q8_0",
     s = Xc.std(0).clamp(min=1e-4)
     V0, evals = li.fit_pca(Xc / s, dims)
     V = V0[:, :k].contiguous()
+    # per-component spread of the codes. A block quantiser sets one scale per 32 codes,
+    # so the block that holds the top component drowns the small ones; dividing each
+    # component by its own spread puts them on equal footing, and the exporter folds
+    # the inverse into the query and output matrices, so nothing changes but the error.
+    zs = ((Xc / s) @ V).std(0).clamp(min=1e-6) if whiten else None
     m = dict(meta or {})
     assert quant in GGML_BLOCK_BYTES, quant
     m.update({"codec": "cpca", "quant": quant, "requested_dims": int(dims), "k": int(k),
               "funded_dims": int(k), "actual_bits": int(k * GGML_BLOCK_BYTES[quant] * 8 // 32),
               "n_states": int(X.shape[0]), "hidden_dim": int(X.shape[1]), "seed": int(seed),
               "explained_var": float(evals[:k].sum() / evals.sum()),
-              "codec_name": f"pca{k}{quant}"})
+              "whiten": bool(whiten),
+              "codec_name": f"pca{k}{quant}" + ("w" if whiten else "")})
     b = np.full(k, 8 if quant == "q8_0" else 4, dtype=np.int32)
     zeros = np.zeros(k, dtype=np.float32)
     return Codebook(mu=mu.cpu().numpy(), s=s.cpu().numpy(), V=V.cpu().numpy(), b=b,
-                    lo=zeros, hi=zeros, meta=m)
+                    lo=zeros, hi=zeros, meta=m,
+                    zs=None if zs is None else zs.cpu().numpy().astype(np.float32))
 
 
 def fit_q8(states, dims, k, *, meta=None, seed=0):

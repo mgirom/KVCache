@@ -157,3 +157,32 @@ model hashes and measured rows; `tools/kvcache.py` to pull, serve and audit; a C
 build of the patched llama.cpp on Linux, macOS and Windows that also validates every
 filed submission; `reproduce-llamacpp.sh`, verified from a clean clone (pinned commit, seven patches, built, flag present); a documents index. CI green on all three platforms. The 16k rung on both ternary models and the f32 row are in (5f). Still yours: the Pages source
 switch and PR #1.
+
+## Phase 2 (in progress, 2026-09-05)
+
+**Speed.** The per-head multiply is now one `ggml_mul_mat_id` with constant index tables:
+no permutes, no copies. Two things the operator's CUDA path needed that mixture models
+never ask of it: matrices in f16 rather than f32, and never more slots than matrices,
+so the query-side matrices are expanded to one per query head at load (16 × 128 × 128
+× 2 bytes per layer). CPU was correct throughout; CUDA returned garbage until the
+expansion. The 12-item check keeps the same counts and agreement as the copy-based
+build. Speed is being measured at the standard profile.
+
+**The 4k gap.** Hypothesis: `q4_0` sets one scale per 32 codes and the rotated
+components have very unequal spread, so the block holding the top component drowns
+the small ones. Fix: whiten each component (divide by its spread), folding the inverse
+into the query and output matrices, so the stored numbers change and the algebra does
+not. On the real 1.7B states, key-side attention-score error against the true keys:
+
+| layer | plain q4_0 | whitened q4_0 |
+|---|---:|---:|
+| 0 | 0.049 | 0.029 |
+| 7 | 0.101 | 0.046 |
+| 14 | 0.074 | 0.065 |
+| 21 | 0.082 | 0.063 |
+| 27 | 0.081 | 0.045 |
+
+Values improve slightly; the four sink rows get 10 to 50% worse, since whitening
+amplifies their small components. Partial whitening (a power of the spread below one)
+is the obvious middle if the sink rows turn out to matter. Emulated quick audit and the
+llama.cpp standard audit of the whitened codebook are queued.

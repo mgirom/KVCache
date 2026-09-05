@@ -1,7 +1,7 @@
 From 7acae609c1535c977d698259a8bf61899cf80e3d Mon Sep 17 00:00:00 2001
 From: mgirom <84082110+mgirom@users.noreply.github.com>
 Date: Thu, 3 Sep 2026 07:28:57 +0100
-Subject: [PATCH 5/7] kv-cache: create no Hadamard inputs when a cpca codebook
+Subject: [PATCH 5/8] kv-cache: create no Hadamard inputs when a cpca codebook
  is loaded; guard the hybrid input setters
 
 An unread graph input is never allocated; the hybrid memory's set_input touched its

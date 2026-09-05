@@ -1,7 +1,7 @@
 From 493d610e4dc610e303c18788cf83f50143d4fcb2 Mon Sep 17 00:00:00 2001
 From: mgirom <84082110+mgirom@users.noreply.github.com>
 Date: Wed, 2 Sep 2026 20:36:46 +0100
-Subject: [PATCH 2/7] kv-cache: size the per-buffer context for the nine cpca
+Subject: [PATCH 2/8] kv-cache: size the per-buffer context for the nine cpca
  tensors per layer
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
