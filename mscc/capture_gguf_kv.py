@@ -105,7 +105,7 @@ ap.add_argument("-o", "--out", required=True, help="output .kvcb.npz (a .cpca.gg
 ap.add_argument("--state-file", default="", help="reuse a saved state file instead of running the server")
 ap.add_argument("--whiten", action="store_true", help="scale code components to unit spread (see kvfit --whiten)")
 ap.add_argument("--whiten-power", type=float, default=1.0, help="partial whitening: divide by spread^power (1 = full)")
-ap.add_argument("--window", type=int, default=0, help="prefill the corpus in windows of this many tokens, each as its own sequence "
+ap.add_argument("--window", type=int, default=2048, help="prefill the corpus in windows of this many tokens, each as its own sequence "
                                                        "(positions restart at 0), so the fit sees the positions a served context does; 0 = one sequence")
 a = ap.parse_args()
 

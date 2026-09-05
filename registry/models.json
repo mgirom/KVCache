@@ -16,24 +16,27 @@
    "n_layer": 28,
    "n_head_kv": 8,
    "head_dim": 128,
-   "codebook_file": "qwen3-1.7b_pca128q4_0.cpca.gguf",
-   "codebook_sha256": "59a011361bf2917ce48504761ea2b4fbd8bbab28156936500a4bb8ca94ef0109",
-   "codebook_bytes": 37003072,
+   "codebook_file": "qwen3-1.7b_pca128q4_0w.cpca.gguf",
+   "codebook_sha256": "62f52fc8d857b596980a2519884b9781ecc1fac0770c67c1193742aed88657d1",
+   "codebook_bytes": 37003328,
    "recommended": {
     "ctk": "q4_0",
     "ctv": "q4_0",
     "flash_attn": "on"
    },
    "measured": {
-    "q4_0 fitted": "134/144, 90/96 vs 136/144, 95/96 (3.19x)",
-    "iq4_nl fitted": "138/144, 93/96 vs 136/144, 95/96 (3.60x)"
+    "q4_0 fitted (this codebook)": "138/144, 95/96 vs 136/144, 95/96 (3.23x); decode 91.6 vs Hadamard 87.7 tok/s at 1k, 75.6 vs 73.6 at 4k",
+    "q4_0 fitted (earlier HF-fit codebook)": "134/144, 90/96 and 139/144, 94/96 in two runs",
+    "iq4_nl fitted (HF-fit)": "138/144, 93/96 (3.60x)"
    },
    "results": [
+    "results/cpca-whitewin-qwen3-1.7b.json",
+    "results/cpca-fused-qwen3-1.7b.json",
     "results/cpca-qwen3-1.7b.json",
     "results/cpca-types-qwen3-1.7b.json"
    ],
    "note": "obtain the model file from its publisher; the sha256 identifies the exact file these rows were measured on",
-   "fit_source": "HF bf16 weights (kvfit); a GGUF-state fit is being audited"
+   "fit_source": "llama.cpp state file of this GGUF, 2k-token windows, whitened (capture_gguf_kv --window 2048 --whiten)"
   },
   {
    "id": "bonsai-8b",

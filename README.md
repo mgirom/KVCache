@@ -75,11 +75,14 @@ Standard profile, one run, the same 240 items, Qwen3-1.7B GGUF:
 | `q8_0` | 141/144 | 95/96 | 1.80× |
 | `q4_0`, Hadamard basis (llama.cpp today) | 120/144 | 82/96 | 3.24× |
 | `q4_0`, fitted basis (codebook fitted on HF bf16 states) | 134/144 | 90/96 | 3.19× |
-| **`q4_0`, fitted basis (fitted on this GGUF's own states, whitened)** | **134/144** | **96/96** | **3.23×** |
+| `q4_0`, fitted basis (fitted on this GGUF's own states, one 16k sequence, whitened) | 134/144 | 96/96 | 3.23× |
+| **`q4_0`, fitted basis (this GGUF's states in 2k windows, whitened; the shipped codebook)** | **138/144** | **95/96** | **3.23×** |
 
-Five standard-profile runs of the fitted `q4_0` arm with different codebooks total 218
+Six standard-profile runs of the fitted `q4_0` arm with different codebooks total 218
 to 233 of 240 against the reference's 231 every time and the Hadamard's 202 every time;
 the same codebook moved 9 items between two runs, so differences below that are noise.
+The shipped codebook is the one fitted on the served file's own cache, prefilled in 2k
+windows so the fit sees the positions a served context does, and whitened: 233/240.
 The design record has the full table.
 | `q5_0`, Hadamard basis | 138/144 | 96/96 | 2.94× |
 | `q5_0`, fitted basis | 140/144 | 95/96 | 2.94× |
@@ -144,10 +147,11 @@ own saved cache), standard profile, 288 items:
 And at 16k context on the same 27B, 144 items: reference 142/144, Hadamard `q4_0`
 143/144, fitted `q4_0` **143/144** at 3.27× smaller, decoding at 15.5 tokens per
 second. A 27B model at 16k context, its cache under a third of f16, no measurable
-loss, on a consumer card. That is the combination this project set out to find. Its price is time, now small: with the per-head multiply as one fused operator, the
-fitted basis decodes 4 to 5 percent slower than the Hadamard `q4_0` and prefills 6 to 9
-percent slower on the 1.7B, down from 10 to 13 and 13 to 20 with the first
-implementation (numbers in the design record). Ternary weights and a 3.4× smaller cache, no measurable
+loss, on a consumer card. That is the combination this project set out to find. Its price in time has gone: with the per-head multiply as one fused operator, the
+fitted basis decoded at 91.6 against the Hadamard `q4_0`'s 87.7 tokens per second at 1k
+and 75.6 against 73.6 at 4k in the shipped codebook's run, parity within measurement
+noise, down from 10 to 13 percent slower in the first implementation (numbers in the
+design record). Ternary weights and a 3.4× smaller cache, no measurable
 loss, on a 12 GB card: that is the combination the project set out to find, at the
 8B scale. Result files: [`results/cpca-qwen3-1.7b.json`](results/cpca-qwen3-1.7b.json),
 [`results/cpca-bonsai-8b.json`](results/cpca-bonsai-8b.json),

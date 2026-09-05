@@ -100,6 +100,7 @@ code.
 | 5e. Bonsai-8B, iq4_nl, n=288 | reference 144/144, 143/144 · iq4_nl Hadamard 143/144, 144/144 · iq4_nl fitted 143/144, 144/144 (3.57×): free either way at the higher rate, at the iq4_nl kernel's speed cost |
 | 5f. 16k rung and f32 row (phase 1) | Bonsai-8B at 16k: reference 93/96 · q4_0 Hadamard 90/96 · q4_0 fitted 94/96 (3.38×). Bonsai-27B at 16k: reference 142/144 · q4_0 Hadamard 143/144 · q4_0 fitted 143/144 (3.27×, 15.5 tok/s). Qwen3-1.7B f32 cache: 140/144, 95/96 against f16 136/144, 95/96 at twice the bytes and half the speed: more precision than 16 bits buys nothing measurable. |
 | 5g. Qwen3-1.7B, GGUF-fit fully-whitened q4_0 codebook, n=240 | reference 136/144, 95/96 · q4_0 Hadamard 120/144, 82/96 · **q4_0 fitted (whitened, fit on the served file's states) 134/144, 96/96 (3.23×)**: the 4k gap is closed; decode 83.6 vs 88.9 tok/s at 1k, 70.7 vs 71.8 at 4k |
+| 5h. Qwen3-1.7B, codebook fitted on this GGUF's states in 2k windows, whitened (shipped), n=240 | reference 136/144, 95/96 · Hadamard 120/144, 82/96 · **fitted 138/144, 95/96 (3.23×); decode 91.6 vs 87.7 tok/s at 1k, 75.6 vs 73.6 at 4k** |
 
 The milestone-3 bar was "identical to the PyTorch path". It is not met literally and
 cannot be: the GGUF holds Q4_K_M weights and the HF twin bf16, so the two arms
@@ -218,3 +219,15 @@ about that are noise. Two things are not noise: the Hadamard gap, and that the
 GGUF-fit codebooks sit lower at 1k. The GGUF capture prefilled the corpus as a single
 16k sequence, so its keys carry RoPE positions up to 16k, where the HF fit saw 2k
 windows; a windowed GGUF capture is the next test, and decides which codebook ships.
+
+## Phase 2 closed out (2026-09-05)
+
+Both targets met. **Speed:** the fused per-head multiply brought the fitted basis from
+10 to 13 percent slower than the Hadamard to parity within measurement noise (91.6 vs
+87.7 tok/s at 1k, 75.6 vs 73.6 at 4k in the final run; 4 to 6 percent slower in an
+earlier one). **The 4k gap:** closed, by fitting the codebook on the served file's own
+cache in 2k windows and whitening the codes: 138/144 and 95/96 against 136/144 and
+95/96, 233/240 total against 231. The windowing mattered: a single 16k-sequence fit
+sat 7 to 9 items lower at 1k because its keys carried positions a 1k context never
+sees. Windowed capture is now the default. The 8B and 27B codebooks were single-sequence
+fits and were free at every rung regardless; refitting them windowed is optional.
